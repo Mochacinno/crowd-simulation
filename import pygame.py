@@ -18,10 +18,9 @@ class Humain:
         vitesse = 10 
 
     def choisir_cible(self, dict_humains):
-        print(len(dict_humains))
-        self.cible_1 = dict_humains.pop(f"humain_{randint(0, len(dict_humains))}")
-        print(len(dict_humains))
-        self.cible_2 = dict_humains.pop(f"humain_{randint(0, len(dict_humains))}")
+        #print(randint(0, len(dict_humains)-1))
+        self.cible_1 = dict_humains.pop(list(dict_humains.keys())[randint(0, len(dict_humains)-1)])
+        self.cible_2 = dict_humains.pop(list(dict_humains.keys())[randint(0, len(dict_humains)-1)])
 
     def court_chemin_vect(self):
         x1, y1 = self.cible_1.x, self.cible_1.y
