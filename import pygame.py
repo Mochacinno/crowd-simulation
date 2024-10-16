@@ -20,7 +20,7 @@ class Humain:
         cible_2 = ()
 
     def choisir_cible(self, dict_humains):
-        rand_index_1 = randint(0, len(dict_humains)
+        rand_index_1 = randint(0, len(dict_humains))
         cible_1 = dict_humains[f"humain_{randint(0, len(dict_humains))}"]
 
         cible_2 = dict_humains[f"humain_{randint(0, len(dict_humains))}"]
@@ -35,6 +35,35 @@ class Humain:
     def afficher(self):
         pygame.draw.circle(screen, WHITE, (self.x, self.y), 2)
 
+    def calculer_pente(self,humain1,humain2):
+        a = (humain1.y - humain2.y)/(humain1.x - humain2.x)
+        return a
+    
+    def cibles_en_vue(self, dict_humains, i):
+        
+        cible2_en_vue = True
+
+        # Droite jusqu'à la cible 1
+        a1 = self.calculer_pente(self, self.cible_1)
+        b1 = self.y - a1 * self.x
+
+        # Droite jusqu'à la cible 2
+        a2 = self.calculer_pente(self, self.cible_2)
+        b2 = self.y - a2 * self.x
+
+        for humain in dict_humains.values():
+            # Vérification pour cible 1
+            if humain != self and humain != self.cible_1 and humain != self.cible_2 :
+                if ((humain.x >= self.x and humain.x <= self.cible_1.x) or (humain.x <= self.x and humain.x >= self.cible_1.x)) and ((humain.y >= self.y and humain.y <= self.cible_1.y) or (humain.y <= self.y and humain.y >= self.cible_1.y)):
+                    # Humain est entre self et cible 1
+                    a
+                else:
+                    # Humain n'est pas entre self et cible 1
+                    cible1_en_vue = True
+        self.cible1
+        self.cible2
+
+
 dict_humains = {}
 for i in range(5):
     humain = Humain(randint(0,40),randint(0,40))
@@ -48,7 +77,7 @@ while True:
             sys.exit()
 
     screen.fill(BLACK)
-    for humain in dict_humains.values():
+    for humain, i in dict_humains.values():
         humain.bouger()
         humain.afficher()
     pygame.display.update()
