@@ -56,12 +56,12 @@ class Humain:
             if humain != self and humain != self.cible_1 and humain != self.cible_2 :
                 if ((humain.x >= self.x and humain.x <= self.cible_1.x) or (humain.x <= self.x and humain.x >= self.cible_1.x)) and ((humain.y >= self.y and humain.y <= self.cible_1.y) or (humain.y <= self.y and humain.y >= self.cible_1.y)):
                     # Humain est entre self et cible 1
-                    a
+                    a_humain = self.calculer_pente(self,humain)
+                    if abs(a1 - a_humain) < 5 : 
+                        cible1_en_vue = False
                 else:
                     # Humain n'est pas entre self et cible 1
                     cible1_en_vue = True
-        self.cible1
-        self.cible2
 
 
 dict_humains = {}
