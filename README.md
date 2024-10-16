@@ -10,3 +10,8 @@ les points ont de collision => un rayon d'exclusion r_i autour de chaque point
 # en +
 - les points ont de collision qui empeche la vitesse => devient plus constante
 
+
+# NOTES
+600 x 300 dim maxi trotec
+plexiglass 2 jusqu'à 10
+mdf ou contreplaqués 3 ou 6
