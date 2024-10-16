@@ -39,9 +39,7 @@ class Humain:
         a = (humain1.y - humain2.y)/(humain1.x - humain2.x)
         return a
     
-    def cibles_en_vue(self, dict_humains, i):
-        
-        cible2_en_vue = True
+    def cibles_en_vue(self, dict_humains):
 
         # Droite jusqu'à la cible 1
         a1 = self.calculer_pente(self, self.cible_1)
@@ -53,7 +51,7 @@ class Humain:
 
         for humain in dict_humains.values():
             # Vérification pour cible 1
-            if humain != self and humain != self.cible_1 and humain != self.cible_2 :
+            if humain != self and humain != self.cible_1 :
                 if ((humain.x >= self.x and humain.x <= self.cible_1.x) or (humain.x <= self.x and humain.x >= self.cible_1.x)) and ((humain.y >= self.y and humain.y <= self.cible_1.y) or (humain.y <= self.y and humain.y >= self.cible_1.y)):
                     # Humain est entre self et cible 1
                     a_humain = self.calculer_pente(self,humain)
@@ -62,6 +60,16 @@ class Humain:
                 else:
                     # Humain n'est pas entre self et cible 1
                     cible1_en_vue = True
+            if humain != self and humain != self.cible_2 :
+                if ((humain.x >= self.x and humain.x <= self.cible_2.x) or (humain.x <= self.x and humain.x >= self.cible_2.x)) and ((humain.y >= self.y and humain.y <= self.cible_2.y) or (humain.y <= self.y and humain.y >= self.cible_2.y)):
+                    # Humain est entre self et cible 1
+                    a_humain = self.calculer_pente(self,humain)
+                    if abs(a2 - a_humain) < 5 : 
+                        cible2_en_vue = False
+                else:
+                    # Humain n'est pas entre self et cible 1
+                    cible2_en_vue = True
+        return cible1_en_vue, cible2_en_vue
 
 
 dict_humains = {}
