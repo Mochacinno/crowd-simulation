@@ -85,7 +85,10 @@ while True:
             sys.exit()
 
     screen.fill(BLACK)
-    for humain, i in dict_humains.values():
+    
+    for humain in dict_humains.values():
         humain.bouger()
         humain.afficher()
     pygame.display.update()
+    
+    
