@@ -59,7 +59,13 @@ class Humain:
         return a
     
     def cibles_en_vue(self, dict_humains):
+        """
+        Vérifie que la personne peut voir ses 2 cibles
 
+        Args : dict_humains
+
+        Returns : 1 booléen pour chaque cible
+        """
         # Droite jusqu'à la cible 1
         a1 = self.calculer_pente(self, self.cible_1)
 
@@ -118,5 +124,4 @@ while True:
         humain.afficher()
         humain.court_chemin_vect()   
     pygame.display.update()
-    
     
