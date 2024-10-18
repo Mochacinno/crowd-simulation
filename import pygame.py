@@ -49,10 +49,45 @@ class Humain:
         self.pos = self.pos 
 
     def afficher(self):
-        print((self.pos[0], self.pos[1]))
+        #print((self.pos[0], self.pos[1]))
         pygame.draw.circle(screen, WHITE, self.pos, 2)
         #pygame.draw.line(screen, (self.id*20, self.id*50, self.id*60), self.pos, self.cible_1.pos)
         #pygame.draw.line(screen, (self.id*20, self.id*50, self.id*60), self.pos, self.cible_2.pos)
+    
+    def calculer_pente(self,humain1,humain2):
+        a = (humain1.pos[1] - humain2.pos[1])/(humain1.pos[0] - humain2.pos[0])
+        return a
+    
+    def cibles_en_vue(self, dict_humains):
+
+        # Droite jusqu'à la cible 1
+        a1 = self.calculer_pente(self, self.cible_1)
+
+        # Droite jusqu'à la cible 2
+        a2 = self.calculer_pente(self, self.cible_2)
+        
+
+        for humain in dict_humains.values():
+            # Vérification pour cible 1
+            if humain != self and humain != self.cible_1 :
+                if ((humain.pos[0] >= self.pos[0] and humain.pos[0] <= self.cible_1.pos[0]) or (humain.pos[0] <= self.pos[0] and humain.pos[0] >= self.cible_1.pos[0])) and ((humain.pos[1] >= self.pos[1] and humain.pos[1] <= self.cible_1.pos[1]) or (humain.pos[1] <= self.pos[1] and humain.pos[1] >= self.cible_1.pos[1])):
+                    # Humain est entre self et cible 1
+                    a_humain = self.calculer_pente(self,humain)
+                    if abs(a1 - a_humain) < 5 : 
+                        cible1_en_vue = False
+                else:
+                    # Humain n'est pas entre self et cible 1
+                    cible1_en_vue = True
+            if humain != self and humain != self.cible_2 :
+                if ((humain.x >= self.pos[0] and humain.pos[0] <= self.cible_2.pos[0]) or (humain.pos[0] <= self.pos[0] and humain.pos[0] >= self.cible_2.pos[0])) and ((humain.pos[1] >= self.pos[1] and humain.pos[1] <= self.cible_2.pos[1]) or (humain.pos[1] <= self.pos[1] and humain.pos[1] >= self.cible_2.pos[1])):
+                    # Humain est entre self et cible 1
+                    a_humain = self.calculer_pente(self,humain)
+                    if abs(a2 - a_humain) < 5 : 
+                        cible2_en_vue = False
+                else:
+                    # Humain n'est pas entre self et cible 1
+                    cible2_en_vue = True
+        return cible1_en_vue, cible2_en_vue
 
 
 # La dictionnaire des gens
@@ -78,10 +113,10 @@ while True:
 
     screen.fill(BLACK)
     
-    for humain in dict_humains.values():
+    for humain in dict_humains.values():   
         humain.bouger()
         humain.afficher()
-        humain.court_chemin_vect()
+        humain.court_chemin_vect()   
     pygame.display.update()
     
     
