@@ -32,11 +32,20 @@ class Humain:
     def choisir_cible(self, dict_humains):
         #print(randint(0, len(dict_humains)-1))
         # faut qu'il ne choisit lui meme
-        i = randint(0, len(dict_humains)-1)
-        while randint(0, len(dict_humains)-1) == self.id:
-            self.cible_1 = dict_humains.pop(list(dict_humains.keys())[randint(0, len(dict_humains)-1)])
-        while randint(0, len(dict_humains)-1) == self.id:
-            self.cible_2 = dict_humains.pop(list(dict_humains.keys())[randint(0, len(dict_humains)-1)])
+        res = False
+        index_cible_1 = 0
+        index_cible_2 = 0
+        while not res:
+            index_cible_1 = randint(0, len(dict_humains)-1)
+            if index_cible_1 != self.id:
+                self.cible_1 = dict_humains[list(dict_humains.keys())[index_cible_1]]
+                res = True
+        res = False
+        while not res: 
+            index_cible_2 = randint(0, len(dict_humains)-1)
+            if index_cible_2 not in (self.id, index_cible_1):
+                self.cible_2 = dict_humains[list(dict_humains.keys())[index_cible_2]]
+                res = True
 
     def court_chemin_vect(self):
         x1, y1 = self.cible_1.x, self.cible_1.y
@@ -98,13 +107,14 @@ class Humain:
                     cible2_en_vue = True
         return cible1_en_vue, cible2_en_vue
 
-dico_test={"A": Humain(100,100,1),
-           "B": Humain(200,200,2),
-           "C": Humain(300,300,3)}
+dico_test={"A": Humain(100,100,0),
+           "B": Humain(200,200,1),
+           "C": Humain(300,300,2)}
 for humain in dico_test.values():
     dict_humains_temp = dico_test.copy()
     humain.choisir_cible(dict_humains_temp)
     print(humain.cible_1.id,humain.cible_2.id)
+    print(humain.cibles_en_vue(dico_test))
 """
 # La dictionnaire des gens
 dict_humains = {}
