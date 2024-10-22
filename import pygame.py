@@ -27,7 +27,9 @@ class Humain:
         vitesse = 10 
         self.vect_directeur = np.array([0,0])
         self.cible_1=None
+        self.cible_1_pos = (0, 0)
         self.cible_2=None
+        self.cible_2_pos = (0, 0)
 
     def choisir_cible(self, dict_humains):
         #print(randint(0, len(dict_humains)-1))
@@ -47,11 +49,26 @@ class Humain:
                 self.cible_2 = dict_humains[list(dict_humains.keys())[index_cible_2]]
                 res = True
 
+        print(self.cible_1.id, self.cible_2.id)
+
     def court_chemin_vect(self):
         x1, y1 = self.cible_1.x, self.cible_1.y
         x2, y2 = self.cible_2.x, self.cible_2.y
         a = ( y2 - y1 ) / ( x2 - x1 ) # pente
-        pygame.draw.line(screen, WHITE, self.cible_1.pos, self.cible_2.pos)
+        midpoint = (self.cible_1.pos + self.cible_2.pos) / 2
+        # equation is midpoint y = (-1/a) * midpoint x + c1
+        c1 = midpoint[1] + ( midpoint[0] / a )
+        # other equation is self.y = a * self.x + c2
+        c2 = self.y - ( a * self.y )
+        # now the intersection between the two
+        # -1 /a * interx+ c1 = a * interx + c2
+        # -1 /a * interx - a* interx = c2- c1
+        # interx(-1/a -a) = c2-c1
+        # interx = a( c2 - c1) / (-1 - a**2)
+        interx = (a * ( c2 - c1 ))/(-1-a**2)
+        pygame.draw.circle(screen, (255, 0, 255), midpoint, 2)
+        pygame.draw.circle(screen, (255, 0, 100), (interx, a * interx + c2), 2)
+        #pygame.draw.line(screen, (255, 0, 255), midpoint, midpoint * 1 / - a)
 
         b = self.y - self.x * a
         self.vect_directeur = normalize_vector(np.array([1, a]))
@@ -108,13 +125,11 @@ class Humain:
         return cible1_en_vue, cible2_en_vue
 
 dico_test={"A": Humain(100,100,0),
-           "B": Humain(200,200,1),
+           "B": Humain(200, 100,1),
            "C": Humain(300,300,2)}
 for humain in dico_test.values():
-    dict_humains_temp = dico_test.copy()
-    humain.choisir_cible(dict_humains_temp)
-    print(humain.cible_1.id,humain.cible_2.id)
-    print(humain.cibles_en_vue(dico_test))
+    humain.choisir_cible(dico_test)
+
 """
 # La dictionnaire des gens
 dict_humains = {}
@@ -128,7 +143,7 @@ for i in range(3):
 for humain in dict_humains.values():
     dict_humains_temp = dict_humains.copy()
     humain.choisir_cible(dict_humains_temp)
-
+"""
 # Boucle principale
 
 while True:
@@ -140,10 +155,8 @@ while True:
 
     screen.fill(BLACK)
     
-    for humain in dict_humains.values():
+    for humain in dico_test.values():
         #humain.bouger()
         humain.afficher()
-        #humain.court_chemin_vect() 
+        humain.court_chemin_vect() 
     pygame.display.update()
-    
-"""
