@@ -26,13 +26,16 @@ class Humain:
         self.pos = np.array([self.x, self.y])
         vitesse = 10 
         self.vect_directeur = np.array([0,0])
+        self.cible_1=None
+        self.cible_2=None
 
     def choisir_cible(self, dict_humains):
         #print(randint(0, len(dict_humains)-1))
         # faut qu'il ne choisit lui meme
-        if randint(0, len(dict_humains)-1) != id:
+        i = randint(0, len(dict_humains)-1)
+        while randint(0, len(dict_humains)-1) == self.id:
             self.cible_1 = dict_humains.pop(list(dict_humains.keys())[randint(0, len(dict_humains)-1)])
-        if randint(0, len(dict_humains)-1) != id:
+        while randint(0, len(dict_humains)-1) == self.id:
             self.cible_2 = dict_humains.pop(list(dict_humains.keys())[randint(0, len(dict_humains)-1)])
 
     def court_chemin_vect(self):
@@ -95,7 +98,14 @@ class Humain:
                     cible2_en_vue = True
         return cible1_en_vue, cible2_en_vue
 
-
+dico_test={"A": Humain(100,100,1),
+           "B": Humain(200,200,2),
+           "C": Humain(300,300,3)}
+for humain in dico_test.values():
+    dict_humains_temp = dico_test.copy()
+    humain.choisir_cible(dict_humains_temp)
+    print(humain.cible_1.id,humain.cible_2.id)
+"""
 # La dictionnaire des gens
 dict_humains = {}
 
@@ -110,6 +120,7 @@ for humain in dict_humains.values():
     humain.choisir_cible(dict_humains_temp)
 
 # Boucle principale
+
 while True:
     clock.tick(60)
     for event in pygame.event.get():
@@ -119,9 +130,10 @@ while True:
 
     screen.fill(BLACK)
     
-    for humain in dict_humains.values():   
-        humain.bouger()
+    for humain in dict_humains.values():
+        #humain.bouger()
         humain.afficher()
-        humain.court_chemin_vect()   
+        #humain.court_chemin_vect() 
     pygame.display.update()
     
+"""
