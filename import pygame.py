@@ -3,6 +3,7 @@ import sys
 from random import randint
 from config import *
 import numpy as np
+import math
 
 pygame.init()
 clock = pygame.time.Clock()
@@ -49,29 +50,37 @@ class Humain:
                 self.cible_2 = dict_humains[list(dict_humains.keys())[index_cible_2]]
                 res = True
 
-        print(self.cible_1.id, self.cible_2.id)
+        #print(self.cible_1.id, self.cible_2.id)
 
     def court_chemin_vect(self):
         x1, y1 = self.cible_1.x, self.cible_1.y
         x2, y2 = self.cible_2.x, self.cible_2.y
-        a = ( y2 - y1 ) / ( x2 - x1 ) # pente
+        pente = np.array([x1-x2, y1-y2]) #theta
         midpoint = (self.cible_1.pos + self.cible_2.pos) / 2
-        # equation is midpoint y = (-1/a) * midpoint x + c1
-        c1 = midpoint[1] + ( midpoint[0] / a )
-        # other equation is self.y = a * self.x + c2
-        c2 = self.y - ( a * self.y )
-        # now the intersection between the two
-        # -1 /a * interx+ c1 = a * interx + c2
-        # -1 /a * interx - a* interx = c2- c1
-        # interx(-1/a -a) = c2-c1
-        # interx = a( c2 - c1) / (-1 - a**2)
-        interx = (a * ( c2 - c1 ))/(-1-a**2)
-        pygame.draw.circle(screen, (255, 0, 255), midpoint, 2)
-        pygame.draw.circle(screen, (255, 0, 100), (interx, a * interx + c2), 2)
+        theta_pente = math.atan2(pente[1], pente[0])
+        print(np.degrees(theta_pente))
+        vectdir = np.array([math.cos(theta_pente), math.sin(theta_pente)])
+        print(vectdir)
+        perp_vectdir = np.array([-math.sin(theta_pente), math.cos(theta_pente)])
+        print(perp_vectdir)
+        res = np.linalg.solve([[perp_vectdir[0], vectdir[0]], [perp_vectdir[1], vectdir[1]]], self.pos - midpoint)
+        print(res)
+        self.point = perp_vectdir * res[0] + midpoint
+        #print(theta_pente)
+        print(self.point)
+        pygame.draw.circle(screen, (255, 0, 200), self.point, 2)
+        
+
+
+
+
+
+        #pygame.draw.circle(screen, (255, 0, 255), midpoint, 2)
+        #pygame.draw.circle(screen, (255, 0, 255), (100, (-1/a) * 100 + b1), 2)
         #pygame.draw.line(screen, (255, 0, 255), midpoint, midpoint * 1 / - a)
 
-        b = self.y - self.x * a
-        self.vect_directeur = normalize_vector(np.array([1, a]))
+        #b = self.y - self.x * a
+        #self.vect_directeur = normalize_vector(np.array([1, a]))
         #pygame.draw.line(screen, WHITE, self.pos, self.pos+10*self.vect_directeur)
 
     def bouger(self):
@@ -123,14 +132,16 @@ class Humain:
                     # Humain n'est pas entre self et cible 1
                     cible2_en_vue = True
         return cible1_en_vue, cible2_en_vue
-
+"""
 dico_test={"A": Humain(100,100,0),
            "B": Humain(200, 100,1),
            "C": Humain(300,300,2)}
 for humain in dico_test.values():
     humain.choisir_cible(dico_test)
 
+dico_test["B"].court_chemin_vect() 
 """
+
 # La dictionnaire des gens
 dict_humains = {}
 
@@ -143,10 +154,10 @@ for i in range(3):
 for humain in dict_humains.values():
     dict_humains_temp = dict_humains.copy()
     humain.choisir_cible(dict_humains_temp)
-"""
-# Boucle principale
 
-while True:
+# Boucle principale
+x = True
+while x:
     clock.tick(60)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -155,7 +166,7 @@ while True:
 
     screen.fill(BLACK)
     
-    for humain in dico_test.values():
+    for humain in dict_humains.values():
         #humain.bouger()
         humain.afficher()
         humain.court_chemin_vect() 
