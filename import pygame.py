@@ -31,49 +31,58 @@ class Humain:
         self.cible_1_pos = (0, 0)
         self.cible_2=None
         self.cible_2_pos = (0, 0)
+        self.dict_humains = {}
 
     def choisir_cible(self, dict_humains):
         #print(randint(0, len(dict_humains)-1))
         # faut qu'il ne choisit lui meme
+        self.dict_humains = dict_humains
         res = False
         index_cible_1 = 0
         index_cible_2 = 0
         while not res:
             index_cible_1 = randint(0, len(dict_humains)-1)
             if index_cible_1 != self.id:
-                self.cible_1 = dict_humains[list(dict_humains.keys())[index_cible_1]]
+                #self.cible_1 = dict_humains[list(dict_humains.keys())[index_cible_1]]
+                self.cible_1 = index_cible_1
                 res = True
         res = False
         while not res: 
             index_cible_2 = randint(0, len(dict_humains)-1)
             if index_cible_2 not in (self.id, index_cible_1):
-                self.cible_2 = dict_humains[list(dict_humains.keys())[index_cible_2]]
+                #self.cible_2 = dict_humains[list(dict_humains.keys())[index_cible_2]]
+                self.cible_2 = index_cible_2
                 res = True
 
         #print(self.cible_1.id, self.cible_2.id)
 
     def court_chemin_vect(self):
-        x1, y1 = self.cible_1.x, self.cible_1.y
-        x2, y2 = self.cible_2.x, self.cible_2.y
-        pente = np.array([x1-x2, y1-y2]) #theta
-        midpoint = (self.cible_1.pos + self.cible_2.pos) / 2
-        theta_pente = math.atan2(pente[1], pente[0])
-        print(np.degrees(theta_pente))
-        vectdir = np.array([math.cos(theta_pente), math.sin(theta_pente)])
-        print(vectdir)
-        perp_vectdir = np.array([-math.sin(theta_pente), math.cos(theta_pente)])
-        print(perp_vectdir)
+        cible_1 = dict_humains[list(dict_humains.keys())[self.cible_1]].pos
+        cible_2 = dict_humains[list(dict_humains.keys())[self.cible_2]].pos
+        x1, y1 = cible_1[0], cible_1[1]
+        x2, y2 = cible_2[0], cible_2[1]
+        vectdir = np.array([x1-x2, y1-y2]) #theta
+        midpoint = (cible_1 + cible_2) / 2
+        #theta_pente = math.atan2(pente[1], pente[0])
+        #print(np.degrees(theta_pente))
+        #vectdir = np.array([math.cos(theta_pente), math.sin(theta_pente)])
+        #print(vectdir)
+        perp_vectdir = normalize_vector(np.array([y1-y2, x2-x1]))
+        #print(perp_vectdir)
         res = np.linalg.solve([[perp_vectdir[0], vectdir[0]], [perp_vectdir[1], vectdir[1]]], self.pos - midpoint)
-        print(res)
+        #print(res)
         self.point = perp_vectdir * res[0] + midpoint
         #print(theta_pente)
-        print(self.point)
+        #print(self.point)
         pygame.draw.circle(screen, (255, 0, 200), self.point, 2)
+        #pygame.draw.line(screen,"grey", self.pos, self.point, 1)  # 5 is the width of the line
+        return self.point
         
-
-
-
-
+    def bouger(self):
+        vect_dir = self.court_chemin_vect() - self.pos
+        self.pos = self.pos + vect_dir / np.linalg.norm(vect_dir) * 5
+        self.dict_humains[self.id] = self.pos
+        self.afficher()
 
         #pygame.draw.circle(screen, (255, 0, 255), midpoint, 2)
         #pygame.draw.circle(screen, (255, 0, 255), (100, (-1/a) * 100 + b1), 2)
@@ -82,9 +91,6 @@ class Humain:
         #b = self.y - self.x * a
         #self.vect_directeur = normalize_vector(np.array([1, a]))
         #pygame.draw.line(screen, WHITE, self.pos, self.pos+10*self.vect_directeur)
-
-    def bouger(self):
-        self.pos = self.pos 
 
     def afficher(self):
         #print((self.pos[0], self.pos[1]))
@@ -146,8 +152,8 @@ dico_test["B"].court_chemin_vect()
 dict_humains = {}
 
 # Création des gens
-for i in range(3):
-    humain = Humain(randint(200,500),randint(100,400), i)
+for i in range(13):
+    humain = Humain(randint(100,600),randint(100,500), i)
     dict_humains[f"humain_{i+1}"] = humain
 
 # Affecter les 2 cibles à chacun des gens
@@ -167,7 +173,6 @@ while x:
     screen.fill(BLACK)
     
     for humain in dict_humains.values():
-        #humain.bouger()
-        humain.afficher()
-        humain.court_chemin_vect() 
+        #humain.afficher()
+        humain.bouger() 
     pygame.display.update()
