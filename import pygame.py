@@ -34,70 +34,32 @@ class Humain:
         self.dict_humains = {}
 
     def choisir_cible(self, dict_humains):
-        #print(randint(0, len(dict_humains)-1))
-        # faut qu'il ne choisit lui meme
-        self.dict_humains = dict_humains
-        res = False
-        index_cible_1 = 0
-        index_cible_2 = 0
-        while not res:
-            index_cible_1 = randint(0, len(dict_humains)-1)
-            if index_cible_1 != self.id:
-                #self.cible_1 = dict_humains[list(dict_humains.keys())[index_cible_1]]
-                self.cible_1 = index_cible_1
-                res = True
-        res = False
-        while not res: 
-            index_cible_2 = randint(0, len(dict_humains)-1)
-            if index_cible_2 not in (self.id, index_cible_1):
-                #self.cible_2 = dict_humains[list(dict_humains.keys())[index_cible_2]]
-                self.cible_2 = index_cible_2
-                res = True
+        target_ids = [key for key in dict_humains if key != f"humain_{self.id+1}"]
 
-        #print(self.cible_1.id, self.cible_2.id)
+        self.cible_1, self.cible_2 = np.random.choice(target_ids, 2, replace=False)
 
     def court_chemin_vect(self):
-        cible_1 = dict_humains[list(dict_humains.keys())[self.cible_1]].pos
-        cible_2 = dict_humains[list(dict_humains.keys())[self.cible_2]].pos
+        cible_1 = dict_humains[self.cible_1].pos
+        cible_2 = dict_humains[self.cible_2].pos
         x1, y1 = cible_1[0], cible_1[1]
         x2, y2 = cible_2[0], cible_2[1]
         vectdir = np.array([x1-x2, y1-y2]) #theta
         midpoint = (cible_1 + cible_2) / 2
-        #theta_pente = math.atan2(pente[1], pente[0])
-        #print(np.degrees(theta_pente))
-        #vectdir = np.array([math.cos(theta_pente), math.sin(theta_pente)])
-        #print(vectdir)
         perp_vectdir = normalize_vector(np.array([y1-y2, x2-x1]))
-        #print(perp_vectdir)
         res = np.linalg.solve([[perp_vectdir[0], vectdir[0]], [perp_vectdir[1], vectdir[1]]], self.pos - midpoint)
-        #print(res)
         self.point = perp_vectdir * res[0] + midpoint
-        #print(theta_pente)
-        #print(self.point)
         pygame.draw.circle(screen, (255, 0, 200), self.point, 2)
-        #pygame.draw.line(screen,"grey", self.pos, self.point, 1)  # 5 is the width of the line
         return self.point
         
     def bouger(self):
         vect_dir = self.court_chemin_vect() - self.pos
-        self.pos = self.pos + vect_dir / np.linalg.norm(vect_dir) * 5
+        self.pos = self.pos + vect_dir / np.linalg.norm(vect_dir)
         self.dict_humains[self.id] = self.pos
         self.afficher()
 
-        #pygame.draw.circle(screen, (255, 0, 255), midpoint, 2)
-        #pygame.draw.circle(screen, (255, 0, 255), (100, (-1/a) * 100 + b1), 2)
-        #pygame.draw.line(screen, (255, 0, 255), midpoint, midpoint * 1 / - a)
+    def afficher(self, color=WHITE):
+        pygame.draw.circle(screen, color, self.pos, 2)
 
-        #b = self.y - self.x * a
-        #self.vect_directeur = normalize_vector(np.array([1, a]))
-        #pygame.draw.line(screen, WHITE, self.pos, self.pos+10*self.vect_directeur)
-
-    def afficher(self):
-        #print((self.pos[0], self.pos[1]))
-        pygame.draw.circle(screen, WHITE, self.pos, 2)
-        #pygame.draw.line(screen, (self.id*20, self.id*50, self.id*60), self.pos, self.cible_1.pos)
-        #pygame.draw.line(screen, (self.id*20, self.id*50, self.id*60), self.pos, self.cible_2.pos)
-    
     def calculer_pente(self,humain1,humain2):
         a = (humain1.pos[1] - humain2.pos[1])/(humain1.pos[0] - humain2.pos[0])
         return a
@@ -116,7 +78,6 @@ class Humain:
         # Droite jusqu'à la cible 2
         a2 = self.calculer_pente(self, self.cible_2)
         
-
         for humain in dict_humains.values():
             # Vérification pour cible 1
             if humain != self and humain != self.cible_1 :
@@ -138,6 +99,32 @@ class Humain:
                     # Humain n'est pas entre self et cible 1
                     cible2_en_vue = True
         return cible1_en_vue, cible2_en_vue
+
+
+font = pygame.font.Font(None, 24)
+
+class Interface:
+    def __init__(self):
+        self.display_humain_list()
+
+    def display_humain_list(self):
+        """Display list of Humains"""
+        y_offset = 10
+        for humain in dict_humains.values():
+            text = font.render(f"Humain {humain.id}", True, WHITE)
+            screen.blit(text, (10, y_offset))
+            y_offset += 30
+
+    def check_click_on_list(self, mouse_pos):
+        """Check if humain in list is clicked"""
+        y_offset = 10
+        for humain in dict_humains.values():
+            text_rect = pygame.Rect(10, y_offset, 100, 30)
+            if text_rect.collidepoint(mouse_pos):
+                return humain.id 
+            y_offset += 30
+        return None
+
 """
 dico_test={"A": Humain(100,100,0),
            "B": Humain(200, 100,1),
@@ -150,9 +137,13 @@ dico_test["B"].court_chemin_vect()
 
 # La dictionnaire des gens
 dict_humains = {}
+selected_humain = None  # This will store the ID of the selected humain
+
+# creation de l'interface
+interface = Interface()
 
 # Création des gens
-for i in range(13):
+for i in range(5):
     humain = Humain(randint(100,600),randint(100,500), i)
     dict_humains[f"humain_{i+1}"] = humain
 
@@ -169,10 +160,24 @@ while x:
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+                clicked_humain_id = interface.check_click_on_list(mouse_pos)
+                if clicked_humain_id is not None:
+                    selected_humain = clicked_humain_id
 
     screen.fill(BLACK)
     
+    # Draw the Humain list
+    interface.display_humain_list()
+
     for humain in dict_humains.values():
-        #humain.afficher()
-        humain.bouger() 
+        if humain.id == selected_humain:
+            humain.afficher(highlight=True)
+            color = (0, 255, 0)  # Highlight color for selected Humain
+        else:
+            color = WHITE
+        humain.bouger()
+        humain.afficher()
+
     pygame.display.update()
