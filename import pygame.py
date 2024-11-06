@@ -48,7 +48,7 @@ class Humain:
         perp_vectdir = normalize_vector(np.array([y1-y2, x2-x1]))
         res = np.linalg.solve([[perp_vectdir[0], vectdir[0]], [perp_vectdir[1], vectdir[1]]], self.pos - midpoint)
         self.point = perp_vectdir * res[0] + midpoint
-        pygame.draw.circle(screen, (255, 0, 200), self.point, 2)
+        
         return self.point
         
     def bouger(self):
@@ -58,6 +58,9 @@ class Humain:
 
     def afficher(self, highlight=False):
         if highlight:
+            pygame.draw.circle(screen, (255, 0, 0), self.court_chemin_vect(), 2)
+            pygame.draw.line(screen, (0, 0, 255), (self.pos), (dict_humains[self.cible_1].pos))
+            pygame.draw.line(screen, (0, 0, 255), (self.pos), (dict_humains[self.cible_2].pos))
             pygame.draw.circle(screen, (0, 255, 0), self.pos, 2)
         else:
             pygame.draw.circle(screen, WHITE, self.pos, 2)
@@ -136,7 +139,7 @@ selected_humain = None  # This will store the ID of the selected humain
 interface = Interface()
 
 # Création des gens
-for i in range(5):
+for i in range(20):
     humain = Humain(randint(100,600),randint(100,500), i)
     dict_humains[f"humain_{i+1}"] = humain
 
