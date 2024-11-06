@@ -43,7 +43,7 @@ class Humain:
         cible_2 = dict_humains[self.cible_2].pos
         x1, y1 = cible_1[0], cible_1[1]
         x2, y2 = cible_2[0], cible_2[1]
-        vectdir = np.array([x1-x2, y1-y2]) #theta
+        vectdir = np.array([x1-x2, y1-y2])
         midpoint = (cible_1 + cible_2) / 2
         perp_vectdir = normalize_vector(np.array([y1-y2, x2-x1]))
         res = np.linalg.solve([[perp_vectdir[0], vectdir[0]], [perp_vectdir[1], vectdir[1]]], self.pos - midpoint)
@@ -52,6 +52,7 @@ class Humain:
         return self.point
         
     def bouger(self):
+        # tous les gens bougent en meme temps au lieu que humain1 bouge, qui donc modifie la position pour qqn qui a le cible de humain1
         vect_dir = self.court_chemin_vect() - self.pos
         self.pos = self.pos + vect_dir / np.linalg.norm(vect_dir)
         self.dict_humains[self.id] = self.pos
