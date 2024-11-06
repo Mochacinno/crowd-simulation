@@ -1,5 +1,5 @@
 first file
-## Consigne
+# Consigne
 N personnes (P_1, P_2, etc.)reparties aléatoirement
 représente par des points en (x,y)
 on note le temps t (t=0 au début)
@@ -20,3 +20,7 @@ mdf ou contreplaqués 3 ou 6
 jeu on controle une personne
 un plateau gyro avec des billes comme personnes qui mimique le mouvement de la foule
 heatmap on zones that people walk in make a topographical map
+
+# To do list
+- Calculer les positions suivantes lorsque les points précédents sont immobiles et les faire bouger tous en même temps
+- Ajouter un rayon à chaque personne --> Collision et Cible en vue
