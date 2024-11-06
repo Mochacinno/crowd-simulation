@@ -55,10 +55,12 @@ class Humain:
         vect_dir = self.court_chemin_vect() - self.pos
         self.pos = self.pos + vect_dir / np.linalg.norm(vect_dir)
         self.dict_humains[self.id] = self.pos
-        self.afficher()
 
-    def afficher(self, color=WHITE):
-        pygame.draw.circle(screen, color, self.pos, 2)
+    def afficher(self, highlight=False):
+        if highlight:
+            pygame.draw.circle(screen, (0, 255, 0), self.pos, 2)
+        else:
+            pygame.draw.circle(screen, WHITE, self.pos, 2)
 
     def calculer_pente(self,humain1,humain2):
         a = (humain1.pos[1] - humain2.pos[1])/(humain1.pos[0] - humain2.pos[0])
@@ -174,10 +176,8 @@ while x:
     for humain in dict_humains.values():
         if humain.id == selected_humain:
             humain.afficher(highlight=True)
-            color = (0, 255, 0)  # Highlight color for selected Humain
         else:
-            color = WHITE
+            humain.afficher()
         humain.bouger()
-        humain.afficher()
 
     pygame.display.update()
