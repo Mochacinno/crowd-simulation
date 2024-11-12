@@ -3,6 +3,7 @@ import sys
 from random import randint
 from config import *
 import numpy as np
+import math
 
 pygame.init()
 clock = pygame.time.Clock()
@@ -27,50 +28,49 @@ class Humain:
         vitesse = 10 
         self.vect_directeur = np.array([0,0])
         self.cible_1=None
+        self.cible_1_pos = (0, 0)
         self.cible_2=None
+        self.cible_2_pos = (0, 0)
+        self.dict_humains = {}
 
     def choisir_cible(self, dict_humains):
-        #print(randint(0, len(dict_humains)-1))
-        # faut qu'il ne choisit lui meme
-        res = False
-        index_cible_1 = 0
-        index_cible_2 = 0
-        while not res:
-            index_cible_1 = randint(0, len(dict_humains)-1)
-            if index_cible_1 != self.id:
-                self.cible_1 = dict_humains[list(dict_humains.keys())[index_cible_1]]
-                res = True
-        res = False
-        while not res: 
-            index_cible_2 = randint(0, len(dict_humains)-1)
-            if index_cible_2 not in (self.id, index_cible_1):
-                self.cible_2 = dict_humains[list(dict_humains.keys())[index_cible_2]]
-                res = True
+        target_ids = [key for key in dict_humains if key != f"humain_{self.id+1}"]
+
+        self.cible_1, self.cible_2 = np.random.choice(target_ids, 2, replace=False)
 
     def court_chemin_vect(self):
-        x1, y1 = self.cible_1.x, self.cible_1.y
-        x2, y2 = self.cible_2.x, self.cible_2.y
-        a = ( y2 - y1 ) / ( x2 - x1 ) # pente
-        pygame.draw.line(screen, WHITE, self.cible_1.pos, self.cible_2.pos)
-
-        b = self.y - self.x * a
-        self.vect_directeur = normalize_vector(np.array([1, a]))
-        #pygame.draw.line(screen, WHITE, self.pos, self.pos+10*self.vect_directeur)
-
+        cible_1 = dict_humains[self.cible_1].pos
+        cible_2 = dict_humains[self.cible_2].pos
+        x1, y1 = cible_1[0], cible_1[1]
+        x2, y2 = cible_2[0], cible_2[1]
+        vectdir = np.array([x1-x2, y1-y2])
+        midpoint = (cible_1 + cible_2) / 2
+        perp_vectdir = normalize_vector(np.array([y1-y2, x2-x1]))
+        res = np.linalg.solve([[perp_vectdir[0], vectdir[0]], [perp_vectdir[1], vectdir[1]]], self.pos - midpoint)
+        self.point = perp_vectdir * res[0] + midpoint
+        
+        return self.point
+        
     def bouger(self):
-        self.pos = self.pos 
+        # tous les gens bougent en meme temps au lieu que humain1 bouge, qui donc modifie la position pour qqn qui a le cible de humain1
+        vect_dir = self.court_chemin_vect() - self.pos
+        self.pos = self.pos + vect_dir / np.linalg.norm(vect_dir)
+        self.dict_humains[self.id] = self.pos
 
-    def afficher(self):
-        #print((self.pos[0], self.pos[1]))
-        pygame.draw.circle(screen, WHITE, self.pos, 2)
-        #pygame.draw.line(screen, (self.id*20, self.id*50, self.id*60), self.pos, self.cible_1.pos)
-        #pygame.draw.line(screen, (self.id*20, self.id*50, self.id*60), self.pos, self.cible_2.pos)
-    
+    def afficher(self, highlight=False):
+        if highlight:
+            pygame.draw.circle(screen, (255, 0, 0), self.court_chemin_vect(), 2)
+            pygame.draw.line(screen, (0, 0, 255), (self.pos), (dict_humains[self.cible_1].pos))
+            pygame.draw.line(screen, (0, 0, 255), (self.pos), (dict_humains[self.cible_2].pos))
+            pygame.draw.circle(screen, (0, 255, 0), self.pos, 2)
+        else:
+            pygame.draw.circle(screen, WHITE, self.pos, 2)
+
     def calculer_pente(self,humain1,humain2):
         a = (humain1.pos[1] - humain2.pos[1])/(humain1.pos[0] - humain2.pos[0])
         return a
     
-    def cibles_en_vue(self, dict_humains):
+    def cible_en_vue(self, dict_humains, index_cible):
         """
         Vérifie que la personne peut voir ses 2 cibles
 
@@ -78,50 +78,72 @@ class Humain:
 
         Returns : 1 booléen pour chaque cible
         """
-        # Droite jusqu'à la cible 1
-        a1 = self.calculer_pente(self, self.cible_1)
+        # Pente droite jusqu'à la cible
+        cible = dict_humains[f"humain{index_cible}"]
+        a = self.calculer_pente(self, cible)
 
-        # Droite jusqu'à la cible 2
-        a2 = self.calculer_pente(self, self.cible_2)
         
-
         for humain in dict_humains.values():
             # Vérification pour cible 1
-            if humain != self and humain != self.cible_1 :
-                if ((humain.pos[0] >= self.pos[0] and humain.pos[0] <= self.cible_1.pos[0]) or (humain.pos[0] <= self.pos[0] and humain.pos[0] >= self.cible_1.pos[0])) and ((humain.pos[1] >= self.pos[1] and humain.pos[1] <= self.cible_1.pos[1]) or (humain.pos[1] <= self.pos[1] and humain.pos[1] >= self.cible_1.pos[1])):
-                    # Humain est entre self et cible 1
-                    a_humain = self.calculer_pente(self,humain)
-                    if abs(a1 - a_humain) < 5 : 
-                        cible1_en_vue = False
-                else:
-                    # Humain n'est pas entre self et cible 1
-                    cible1_en_vue = True
-            if humain != self and humain != self.cible_2 :
-                if ((humain.x >= self.pos[0] and humain.pos[0] <= self.cible_2.pos[0]) or (humain.pos[0] <= self.pos[0] and humain.pos[0] >= self.cible_2.pos[0])) and ((humain.pos[1] >= self.pos[1] and humain.pos[1] <= self.cible_2.pos[1]) or (humain.pos[1] <= self.pos[1] and humain.pos[1] >= self.cible_2.pos[1])):
-                    # Humain est entre self et cible 1
-                    a_humain = self.calculer_pente(self,humain)
-                    if abs(a2 - a_humain) < 5 : 
-                        cible2_en_vue = False
-                else:
-                    # Humain n'est pas entre self et cible 1
-                    cible2_en_vue = True
-        return cible1_en_vue, cible2_en_vue
+            if humain != self and humain != cible :
+                if ((humain.pos[0] >= self.pos[0] and humain.pos[0] <= cible.pos[0]) or (humain.pos[0] <= self.pos[0] and humain.pos[0] >= cible.pos[0])) and ((humain.pos[1] >= self.pos[1] and humain.pos[1] <= cible.pos[1]) or (humain.pos[1] <= self.pos[1] and humain.pos[1] >= cible.pos[1])):
+                    
+                    # definir un rayon autour de chaque personne. Sachant que notre rayon de humain vers cette cible passe par le rayon de qqn, donc iil ne peut pas voir.
 
+                    a_humain = self.calculer_pente(self,humain)
+                    if abs(a - a_humain) < 5 : 
+                        cible_en_vue = False
+                else:
+                    # Humain n'est pas entre self et cible 1
+                    cible_en_vue = True
+        
+        return cible_en_vue
+
+
+font = pygame.font.Font(None, 24)
+
+class Interface:
+    def __init__(self):
+        self.display_humain_list()
+
+    def display_humain_list(self):
+        """Display list of Humains"""
+        y_offset = 10
+        for humain in dict_humains.values():
+            text = font.render(f"Humain {humain.id}", True, WHITE)
+            screen.blit(text, (10, y_offset))
+            y_offset += 30
+
+    def check_click_on_list(self, mouse_pos):
+        """Check if humain in list is clicked"""
+        y_offset = 10
+        for humain in dict_humains.values():
+            text_rect = pygame.Rect(10, y_offset, 100, 30)
+            if text_rect.collidepoint(mouse_pos):
+                return humain.id 
+            y_offset += 30
+        return None
+
+"""
 dico_test={"A": Humain(100,100,0),
-           "B": Humain(200,200,1),
+           "B": Humain(200, 100,1),
            "C": Humain(300,300,2)}
 for humain in dico_test.values():
-    dict_humains_temp = dico_test.copy()
-    humain.choisir_cible(dict_humains_temp)
-    print(humain.cible_1.id,humain.cible_2.id)
-    print(humain.cibles_en_vue(dico_test))
+    humain.choisir_cible(dico_test)
+
+dico_test["B"].court_chemin_vect() 
 """
+
 # La dictionnaire des gens
 dict_humains = {}
+selected_humain = None  # This will store the ID of the selected humain
+
+# creation de l'interface
+interface = Interface()
 
 # Création des gens
-for i in range(3):
-    humain = Humain(randint(200,500),randint(100,400), i)
+for i in range(20):
+    humain = Humain(randint(100,600),randint(100,500), i)
     dict_humains[f"humain_{i+1}"] = humain
 
 # Affecter les 2 cibles à chacun des gens
@@ -130,20 +152,29 @@ for humain in dict_humains.values():
     humain.choisir_cible(dict_humains_temp)
 
 # Boucle principale
-
-while True:
+x = True
+while x:
     clock.tick(60)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+                clicked_humain_id = interface.check_click_on_list(mouse_pos)
+                if clicked_humain_id is not None:
+                    selected_humain = clicked_humain_id
 
     screen.fill(BLACK)
     
+    # Draw the Humain list
+    interface.display_humain_list()
+
     for humain in dict_humains.values():
-        #humain.bouger()
-        humain.afficher()
-        #humain.court_chemin_vect() 
+        if humain.id == selected_humain:
+            humain.afficher(highlight=True)
+        else:
+            humain.afficher()
+        humain.bouger()
+
     pygame.display.update()
-    
-"""
