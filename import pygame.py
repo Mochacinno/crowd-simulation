@@ -87,7 +87,9 @@ class Humain:
             # Vérification pour cible 1
             if humain != self and humain != cible :
                 if ((humain.pos[0] >= self.pos[0] and humain.pos[0] <= cible.pos[0]) or (humain.pos[0] <= self.pos[0] and humain.pos[0] >= cible.pos[0])) and ((humain.pos[1] >= self.pos[1] and humain.pos[1] <= cible.pos[1]) or (humain.pos[1] <= self.pos[1] and humain.pos[1] >= cible.pos[1])):
-                    # Humain est entre self et cible 1
+                    
+                    # definir un rayon autour de chaque personne. Sachant que notre rayon de humain vers cette cible passe par le rayon de qqn, donc iil ne peut pas voir.
+
                     a_humain = self.calculer_pente(self,humain)
                     if abs(a - a_humain) < 5 : 
                         cible_en_vue = False
