@@ -22,11 +22,8 @@ def normalize_vector(vector):
 class Humain:
     def __init__(self, x, y, id):
         self.id = id
-        self.x = x
-        self.y = y
-        self.pos = np.array([self.x, self.y])
-        vitesse = 10 
-        self.vect_directeur = np.array([0,0])
+        self.pos = np.array([x, y])
+
         self.cible1 = None      # Instance de cible 1
         self.pos_percue_cible1 = (0,0) # Position percue par l'humain
         self.cible2 = None
