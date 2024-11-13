@@ -27,41 +27,42 @@ class Humain:
         self.pos = np.array([self.x, self.y])
         vitesse = 10 
         self.vect_directeur = np.array([0,0])
-        self.cible_1=None
-        self.cible_1_pos = (0, 0)
-        self.cible_2=None
-        self.cible_2_pos = (0, 0)
-        self.dict_humains = {}
+        self.cible1 = None      # Instance de cible 1
+        self.pos_percue_cible1 = (0,0) # Position percue par l'humain
+        self.cible2 = None
+        self.pos_percue_cible2 = (0,0)
+        
 
     def choisir_cible(self, dict_humains):
-        target_ids = [key for key in dict_humains if key != f"humain_{self.id+1}"]
+        target_ids = [key for key in dict_humains if key != self.id+1]
 
-        self.cible_1, self.cible_2 = np.random.choice(target_ids, 2, replace=False)
-
+        index_cible_1, index_cible_2 = np.random.choice(target_ids, 2, replace=False)
+        self.cible1 = dict_humains_prec[index_cible_1]
+        self.cible2 = dict_humains_prec[index_cible_2]
     def court_chemin_vect(self):
-        cible_1 = dict_humains[self.cible_1].pos
-        cible_2 = dict_humains[self.cible_2].pos
-        x1, y1 = cible_1[0], cible_1[1]
-        x2, y2 = cible_2[0], cible_2[1]
+        self.pos_percue_cible1 = dict_humains_prec[self.cible_1][1]
+        self.pos_percue_cible2 = dict_humains_prec[self.cible_2][1]
+        x1, y1 = self.pos_percue_cible1
+        x2, y2 = self.pos_percue_cible2
         vectdir = np.array([x1-x2, y1-y2])
-        midpoint = (cible_1 + cible_2) / 2
+        midpoint = (self.pos_percue_cible1 + self.pos_percue_cible2) / 2
         perp_vectdir = normalize_vector(np.array([y1-y2, x2-x1]))
         res = np.linalg.solve([[perp_vectdir[0], vectdir[0]], [perp_vectdir[1], vectdir[1]]], self.pos - midpoint)
         self.point = perp_vectdir * res[0] + midpoint
         
         return self.point
         
-    def bouger(self):
+    def calculer_etat_suivant(self):
         # tous les gens bougent en meme temps au lieu que humain1 bouge, qui donc modifie la position pour qqn qui a le cible de humain1
         vect_dir = self.court_chemin_vect() - self.pos
         self.pos = self.pos + vect_dir / np.linalg.norm(vect_dir)
-        self.dict_humains[self.id] = self.pos
-
+        dict_humains_suiv[self.id] = self.pos
+    
     def afficher(self, highlight=False):
         if highlight:
             pygame.draw.circle(screen, (255, 0, 0), self.court_chemin_vect(), 2)
-            pygame.draw.line(screen, (0, 0, 255), (self.pos), (dict_humains[self.cible_1].pos))
-            pygame.draw.line(screen, (0, 0, 255), (self.pos), (dict_humains[self.cible_2].pos))
+            pygame.draw.line(screen, (0, 0, 255), (self.pos), (dict_humains_prec[self.cible_1].pos))
+            pygame.draw.line(screen, (0, 0, 255), (self.pos), (dict_humains_prec[self.cible_2].pos))
             pygame.draw.circle(screen, (0, 255, 0), self.pos, 2)
         else:
             pygame.draw.circle(screen, WHITE, self.pos, 2)
@@ -70,7 +71,7 @@ class Humain:
         a = (humain1.pos[1] - humain2.pos[1])/(humain1.pos[0] - humain2.pos[0])
         return a
     
-    def cible_en_vue(self, dict_humains, index_cible):
+    def cible_en_vue(self, dict_humains_prec, index_cible):
         """
         Vérifie que la personne peut voir ses 2 cibles
 
@@ -79,11 +80,11 @@ class Humain:
         Returns : 1 booléen pour chaque cible
         """
         # Pente droite jusqu'à la cible
-        cible = dict_humains[f"humain{index_cible}"]
+        cible, pos_cible = dict_humains_prec[index_cible]
         a = self.calculer_pente(self, cible)
 
         
-        for humain in dict_humains.values():
+        for humain in dict_humains_prec.values():
             # Vérification pour cible 1
             if humain != self and humain != cible :
                 if ((humain.pos[0] >= self.pos[0] and humain.pos[0] <= cible.pos[0]) or (humain.pos[0] <= self.pos[0] and humain.pos[0] >= cible.pos[0])) and ((humain.pos[1] >= self.pos[1] and humain.pos[1] <= cible.pos[1]) or (humain.pos[1] <= self.pos[1] and humain.pos[1] >= cible.pos[1])):
@@ -109,7 +110,7 @@ class Interface:
     def display_humain_list(self):
         """Display list of Humains"""
         y_offset = 10
-        for humain in dict_humains.values():
+        for humain, pos in dict_humains_prec.values():
             text = font.render(f"Humain {humain.id}", True, WHITE)
             screen.blit(text, (10, y_offset))
             y_offset += 30
@@ -117,7 +118,7 @@ class Interface:
     def check_click_on_list(self, mouse_pos):
         """Check if humain in list is clicked"""
         y_offset = 10
-        for humain in dict_humains.values():
+        for humain, pos in dict_humains_prec.values():
             text_rect = pygame.Rect(10, y_offset, 100, 30)
             if text_rect.collidepoint(mouse_pos):
                 return humain.id 
@@ -135,7 +136,9 @@ dico_test["B"].court_chemin_vect()
 """
 
 # La dictionnaire des gens
-dict_humains = {}
+
+dict_humains_prec = {}
+dict_humains_suiv = {}
 selected_humain = None  # This will store the ID of the selected humain
 
 # creation de l'interface
@@ -144,11 +147,11 @@ interface = Interface()
 # Création des gens
 for i in range(20):
     humain = Humain(randint(100,600),randint(100,500), i)
-    dict_humains[f"humain_{i+1}"] = humain
+    dict_humains_prec[i] = [humain, humain.pos]
 
 # Affecter les 2 cibles à chacun des gens
-for humain in dict_humains.values():
-    dict_humains_temp = dict_humains.copy()
+for humain in dict_humains_prec.values():
+    dict_humains_temp = dict_humains_prec.copy()
     humain.choisir_cible(dict_humains_temp)
 
 # Boucle principale
@@ -170,11 +173,12 @@ while x:
     # Draw the Humain list
     interface.display_humain_list()
 
-    for humain in dict_humains.values():
+    for humain in dict_humains_prec.values():
         if humain.id == selected_humain:
             humain.afficher(highlight=True)
         else:
             humain.afficher()
-        humain.bouger()
+        humain.calculer_etat_suivant()
+    dict_humains_prec = dict_humains_suiv
 
     pygame.display.update()
