@@ -36,7 +36,8 @@ class Humain:
         index_cible1, index_cible2 = np.random.choice(target_ids, 2, replace=False)
         self.cible1 = dict_humains[index_cible1]
         self.cible2 = dict_humains[index_cible2]
-    def court_chemin_vect(self):
+
+    def calculer_destination(self):
         self.pos_percue_cible1 = self.cible1.pos
         self.pos_percue_cible2 = self.cible2.pos
         x1, y1 = self.pos_percue_cible1
@@ -45,19 +46,39 @@ class Humain:
         midpoint = (self.pos_percue_cible1 + self.pos_percue_cible2) / 2
         perp_vectdir = normalize_vector(np.array([y1-y2, x2-x1]))
         res = np.linalg.solve([[perp_vectdir[0], vectdir[0]], [perp_vectdir[1], vectdir[1]]], self.pos - midpoint)
-        self.point = perp_vectdir * res[0] + midpoint
+        self.destination = perp_vectdir * res[0] + midpoint
+
+        return self.destination
+
+    def trouve_mur_limite(self):
+        mur_haut = [np.array([0,0]), np.array([800,0])]     # [position d'1 point , vecteur directeur non normalisé]
+        mur_bas = [np.array([0,600]), np.array([800,0])]
+        mur_gauche = [np.array([0,0]), np.array([0,600])]
+        mur_droite = [np.array([800,0]), np.array([0,600])]
+        liste_murs = [mur_haut, mur_bas, mur_gauche, mur_droite]
+        trouve = False
+        i = 0
+        while not trouve and i < 4 :
+            a = np.array([[self.destination[0], - liste_murs[i][1][0]], [self.destination[1], - liste_murs[i][1][1]]])          
+            b = np.array([self.pos[0]- liste_murs[i][0][0]])                      # Système matriciel
+            alpha, beta = np.linalg.solve(a, b)
+            
+            if alpha >= 0 and alpha <= 1 and beta >= 0 and beta <= 1 :
+                trouve = True
+            else :
+                i += 1
+        return liste_murs[i]
         
-        return self.point
-        
+
     def calculer_etat_suivant(self):
         # tous les gens bougent en meme temps au lieu que humain1 bouge, qui donc modifie la position pour qqn qui a le cible de humain1
-        vect_dir = self.court_chemin_vect() - self.pos
+        vect_dir = self.calculer_destination() - self.pos
         self.pos = self.pos + vect_dir / np.linalg.norm(vect_dir)
         dict_pos_suiv[self.id] = self.pos
     
     def afficher(self, highlight=False):
         if highlight:
-            pygame.draw.circle(screen, (255, 0, 0), self.court_chemin_vect(), 2)
+            pygame.draw.circle(screen, (255, 0, 0), self.calculer_destination(), 2)
             pygame.draw.line(screen, (0, 0, 255), (self.pos), (self.cible1.pos))
             pygame.draw.line(screen, (0, 0, 255), (self.pos), (self.cible2.pos))
             pygame.draw.circle(screen, (0, 255, 0), self.pos, 2)
