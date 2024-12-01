@@ -26,6 +26,7 @@ class Humain:
         self.y = y
         self.pos = np.array([self.x, self.y])
         vitesse = 10 
+        self.collision_radius = 10
         self.vect_directeur = np.array([0,0])
         self.cible_1=None
         self.cible_1_pos = (0, 0)
@@ -50,11 +51,28 @@ class Humain:
         self.point = perp_vectdir * res[0] + midpoint
         
         return self.point
-        
+    
+    def detect_collision(self, dict_humains):
+        for other in dict_humains.values():
+            if other.id != self.id:
+                distance = np.linalg.norm(self.pos - other.pos)
+                if distance < self.collision_radius * 2:  # Collision detected
+                    return other  # Return the colliding Humain
+        return None
+
     def bouger(self):
         # tous les gens bougent en meme temps au lieu que humain1 bouge, qui donc modifie la position pour qqn qui a le cible de humain1
         vect_dir = self.court_chemin_vect() - self.pos
-        self.pos = self.pos + vect_dir / np.linalg.norm(vect_dir)
+        new_pos = self.pos + vect_dir / np.linalg.norm(vect_dir)
+
+        # Check for collisions
+        collision = self.detect_collision(dict_humains)
+        if collision:
+            # Push away from the colliding Humain
+            direction_away = normalize_vector(self.pos - collision.pos)
+            new_pos += direction_away * self.collision_radius  # Move out of collision radius
+
+        self.pos = new_pos
         self.dict_humains[self.id] = self.pos
 
     def afficher(self, highlight=False):
