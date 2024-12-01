@@ -40,7 +40,11 @@ class Humain:
         self.cible_1, self.cible_2 = np.random.choice(target_ids, 2, replace=False)
 
     def court_chemin_vect(self):
-        cible_1 = dict_humains[self.cible_1].pos
+        cibles_en_vue = self.cible_en_vue(dict_humains)
+        if not cibles_en_vue[0]:
+            cible_1 = dict_humains[self.cible_1].pos
+        # A FAIRE
+
         cible_2 = dict_humains[self.cible_2].pos
         x1, y1 = cible_1[0], cible_1[1]
         x2, y2 = cible_2[0], cible_2[1]
@@ -87,8 +91,8 @@ class Humain:
     def calculer_pente(self,humain1,humain2):
         a = (humain1.pos[1] - humain2.pos[1])/(humain1.pos[0] - humain2.pos[0])
         return a
-    
-    def cible_en_vue(self, dict_humains, index_cible):
+
+    def cible_en_vue(self, dict_humains):
         """
         Vérifie que la personne peut voir ses 2 cibles
 
@@ -96,27 +100,25 @@ class Humain:
 
         Returns : 1 booléen pour chaque cible
         """
-        # Pente droite jusqu'à la cible
-        cible = dict_humains[f"humain{index_cible}"]
-        a = self.calculer_pente(self, cible)
+        cibles_en_vue = []
+        for index_cible in [self.cible_1, self.cible_2]:
+            # Pente droite jusqu'à la cible
+            cible = dict_humains[index_cible]
+            vectdir = np.array([self.pos[0]-cible.pos[0], self.pos[1]-cible.pos[1]])
+            cible_en_vue = True
 
-        
-        for humain in dict_humains.values():
-            # Vérification pour cible 1
-            if humain != self and humain != cible :
-                if ((humain.pos[0] >= self.pos[0] and humain.pos[0] <= cible.pos[0]) or (humain.pos[0] <= self.pos[0] and humain.pos[0] >= cible.pos[0])) and ((humain.pos[1] >= self.pos[1] and humain.pos[1] <= cible.pos[1]) or (humain.pos[1] <= self.pos[1] and humain.pos[1] >= cible.pos[1])):
-                    
-                    # definir un rayon autour de chaque personne. Sachant que notre rayon de humain vers cette cible passe par le rayon de qqn, donc iil ne peut pas voir.
+            for humain in dict_humains.values():
+                # Vérification pour cible 1
+                if humain != self and humain != cible :
+                    if ((humain.pos[0] >= self.pos[0] and humain.pos[0] <= cible.pos[0]) or (humain.pos[0] <= self.pos[0] and humain.pos[0] >= cible.pos[0])) and ((humain.pos[1] >= self.pos[1] and humain.pos[1] <= cible.pos[1]) or (humain.pos[1] <= self.pos[1] and humain.pos[1] >= cible.pos[1])):
 
-                    a_humain = self.calculer_pente(self,humain)
-                    if abs(a - a_humain) < 5 : 
-                        cible_en_vue = False
-                else:
-                    # Humain n'est pas entre self et cible 1
-                    cible_en_vue = True
-        
-        return cible_en_vue
-
+                        # definir un rayon autour de chaque personne. Sachant que notre rayon de humain vers cette cible passe par le rayon de qqn, donc iil ne peut pas voir.
+                        d = np.linalg.norm(np.cross(vectdir, np.array([self.pos[0] - humain.pos[0], self.pos[1] - humain.pos[1]]))/ np.linalg.norm(vectdir))
+                        #print(d)
+                        if d <= 5:
+                            cible_en_vue = False
+            cibles_en_vue.append(cible_en_vue)
+        return cibles_en_vue
 
 font = pygame.font.Font(None, 24)
 
@@ -169,9 +171,11 @@ for humain in dict_humains.values():
     dict_humains_temp = dict_humains.copy()
     humain.choisir_cible(dict_humains_temp)
 
+t = 0
 # Boucle principale
 x = True
-while x:
+y = False
+while x and not y or x and y or not x and not y or not x and y:
     clock.tick(60)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -194,5 +198,5 @@ while x:
         else:
             humain.afficher()
         humain.bouger()
-
+    t += 1
     pygame.display.update()
