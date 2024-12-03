@@ -13,12 +13,6 @@ pygame.display.set_caption("Mvt de Foule")
 
 screen.fill(BLACK)
 
-def normalize_vector(vector):
-    norm = np.linalg.norm(vector)
-    if norm == 0:
-        return vector
-    return vector / norm
-
 class Humain:
     def __init__(self, x, y, id):
         self.id = id
@@ -30,6 +24,8 @@ class Humain:
         self.pos_percue_cible1 = (0,0) # Position percue par l'humain
         self.cible2 = None
         self.pos_percue_cible2 = (0,0)
+        
+        self.priority = id
         
 
     def choisir_cible(self, dict_humains):
@@ -46,7 +42,7 @@ class Humain:
         x2, y2 = self.pos_percue_cible2
         vectdir = np.array([x1-x2, y1-y2])
         midpoint = (self.pos_percue_cible1 + self.pos_percue_cible2) / 2
-        perp_vectdir = normalize_vector(np.array([y1-y2, x2-x1]))
+        perp_vectdir = np.array([y1-y2, x2-x1])
         res = np.linalg.solve([[perp_vectdir[0], vectdir[0]], [perp_vectdir[1], vectdir[1]]], self.pos - midpoint)
         self.destination = perp_vectdir * res[0] + midpoint
 
@@ -59,21 +55,6 @@ class Humain:
                 if distance < self.collision_radius:  # Collision detected
                     return other  # Return the colliding Humain
         return None
-
-    def bouger(self):
-        # tous les gens bougent en meme temps au lieu que humain1 bouge, qui donc modifie la position pour qqn qui a le cible de humain1
-        vect_dir = self.court_chemin_vect() - self.pos
-        new_pos = self.pos + vect_dir / np.linalg.norm(vect_dir)
-
-        # Check for collisions
-        collision = self.detect_collision(dict_humains)
-        if collision:
-            # Push away from the colliding Humain
-            direction_away = normalize_vector(self.pos - collision.pos)
-            new_pos += direction_away * self.collision_radius  # Move out of collision radius
-
-        self.pos = new_pos
-        self.dict_humains[self.id] = self.pos
 
     def trouve_mur_limite(self):
         mur_haut = [np.array([0,0]), np.array([800,0])]     # [position d'1 point , vecteur directeur non normalisé]
@@ -93,12 +74,46 @@ class Humain:
             else :
                 i += 1
         return liste_murs[i]
-        
+    
+    def is_head_on_collision(self, colliding_object):
+        # Calculate this object's direction
+        vect_dir = self.calculer_destination() - self.pos
+        vect_dir /= np.linalg.norm(vect_dir)  # Normalize direction
+
+        # Future position
+        future_pos = self.pos + vect_dir
+
+        # Vector from the colliding object to the future position
+        to_future_pos = future_pos - colliding_object.pos
+
+        # Colliding object's direction vector
+        colliding_dir = colliding_object.calculer_destination() - colliding_object.pos
+        colliding_dir /= np.linalg.norm(colliding_dir)  # Normalize direction
+
+        # Calculate cross product (2D version)
+        cross_product = colliding_dir[0] * to_future_pos[1] - colliding_dir[1] * to_future_pos[0]
+
+        # Determine lateral direction based on cross product
+        if cross_product > 0:
+            return np.array([-vect_dir[1], vect_dir[0]])  # Future position is on the left
+        elif cross_product <= 0:
+            return np.array([vect_dir[1], -vect_dir[0]])  # Future position is on the right
 
     def calculer_etat_suivant(self):
         # tous les gens bougent en meme temps au lieu que humain1 bouge, qui donc modifie la position pour qqn qui a le cible de humain1
         vect_dir = self.calculer_destination() - self.pos
-        self.pos = self.pos + vect_dir / np.linalg.norm(vect_dir)
+
+        # collisions
+        colliding_object = self.detect_collision(dict_humains)
+        if colliding_object is not None:
+            # celui avec une priorite plus bas va pas bouger
+            if self.priority > colliding_object.priority:
+                # si en plus le trajectoire de celui qui bouge est confondu avec l'autre point
+                #lateral_movement = self.is_head_on_collision(colliding_object)
+                self.pos = (self.pos + vect_dir / np.linalg.norm(vect_dir)) + np.array([-vect_dir[1], vect_dir[0]])
+                #self.pos = (self.pos + vect_dir / np.linalg.norm(vect_dir))
+        else:
+            self.pos = self.pos + vect_dir / np.linalg.norm(vect_dir)
         dict_pos_suiv[self.id] = self.pos
     
     def afficher(self, highlight=False):
