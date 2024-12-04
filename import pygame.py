@@ -23,7 +23,7 @@ class Humain:
     def __init__(self, x, y, id):
         self.id = id
         self.pos = np.array([x, y])
-
+        self.tolerance = 1
         self.cible1 = None      # Instance de cible 1
         self.pos_percue_cible1 = (0,0) # Position percue par l'humain
         self.cible2 = None
@@ -50,7 +50,7 @@ class Humain:
 
         return self.destination
 
-    def trouve_mur_limite(self):
+    def trouve_mur_collision(self):
         mur_haut = [np.array([0,0]), np.array([800,0])]     # [position d'1 point , vecteur directeur non normalisé]
         mur_bas = [np.array([0,600]), np.array([800,0])]
         mur_gauche = [np.array([0,0]), np.array([0,600])]
@@ -67,14 +67,19 @@ class Humain:
                 trouve = True
             else :
                 i += 1
-        return liste_murs[i]
+        if trouve == True :
+            return liste_murs[i]
+        else :
+            return None 
         
 
     def calculer_etat_suivant(self):
         # tous les gens bougent en meme temps au lieu que humain1 bouge, qui donc modifie la position pour qqn qui a le cible de humain1
+        
         vect_dir = self.calculer_destination() - self.pos
-        self.pos = self.pos + vect_dir / np.linalg.norm(vect_dir)
-        dict_pos_suiv[self.id] = self.pos
+        if np.linalg.norm(vect_dir) > self.tolerance : # Si on est assez loin de la cible on bouge
+            self.pos = self.pos + vect_dir / np.linalg.norm(vect_dir)
+            dict_pos_suiv[self.id] = self.pos
     
     def afficher(self, highlight=False):
         if highlight:
@@ -163,7 +168,7 @@ selected_humain = None  # This will store the ID of the selected humain
 interface = Interface()
 
 # Création des gens
-for i in range(20):
+for i in range(120):
     humain = Humain(randint(100,600),randint(100,500), i)
     dict_humains[i] = humain
     dict_pos[i] = humain.pos
