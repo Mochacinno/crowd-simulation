@@ -9,7 +9,7 @@ pygame.init()
 clock = pygame.time.Clock()
 screen_width, screen_height = 800, 600
 screen = pygame.display.set_mode((screen_width, screen_height))
-pygame.display.set_caption("Mvt de Foule")
+pygame.display.set_caption("Modélisation du banc de poisson")
 
 screen.fill(BLACK)
 
@@ -22,25 +22,25 @@ def normaliser_vecteur(vecteur):
 def calculer_distance(pos1, pos2):
     return np.linalg.norm(pos1 - pos2)
 
-class Humain:
+class Poisson:
     def __init__(self, x, y, id, rayon_collision = 30):
         self.id = id
         self.pos = np.array([x, y], dtype=float)
         self.vitesse = 1
         self.tolerance = 2
         self.cible1 = None      # Instance de cible 1
-        self.pos_percue_cible1 = (0,0) # Position percue par l'humain
+        self.pos_percue_cible1 = (0,0) # Position percue par le poisson
         self.cible2 = None
         self.pos_percue_cible2 = (0,0)
         self.rayon_collision = rayon_collision  # Rayon de collision
          
 
-    def choisir_cible(self, dict_humains):
-        target_ids = [key for key in dict_humains if key != self.id]
+    def choisir_cible(self, dict_poissons):
+        target_ids = [key for key in dict_poissons if key != self.id]
 
         index_cible1, index_cible2 = np.random.choice(target_ids, 2, replace=False)
-        self.cible1 = dict_humains[index_cible1]
-        self.cible2 = dict_humains[index_cible2]
+        self.cible1 = dict_poissons[index_cible1]
+        self.cible2 = dict_poissons[index_cible2]
 
     def calculer_destination(self):
         self.pos_percue_cible1 = self.cible1.pos
@@ -78,9 +78,9 @@ class Humain:
             return None 
         
 
-    def calculer_prochaine_position(self, dict_humains):
-        # tous les gens bougent en meme temps au lieu que humain1 bouge, qui donc modifie la position pour qqn qui a le cible de humain1
-        repulsion = self.verifier_collisions(dict_humains)
+    def calculer_prochaine_position(self, dict_poissons):
+        
+        repulsion = self.verifier_collisions(dict_poissons)
         vect_dir = self.calculer_destination() - self.pos
         prochaine_position = self.pos
         if np.linalg.norm(vect_dir) > self.tolerance : # Si on est loin de la destination
@@ -91,14 +91,14 @@ class Humain:
         dict_pos[self.id] = prochaine_position
         
 
-    def verifier_collisions(self, dict_humains):
+    def verifier_collisions(self, dict_poissons):
         repulsion = 0
-        for autre_humain in dict_humains.values():
-            if autre_humain != self:
-                distance = calculer_distance(self.pos, autre_humain.pos)
+        for autre_poisson in dict_poissons.values():
+            if autre_poisson != self:
+                distance = calculer_distance(self.pos, autre_poisson.pos)
                 if distance < self.rayon_collision:
                     # Calculer le vecteur de répulsion
-                    vecteur_repulsion = self.pos - autre_humain.pos
+                    vecteur_repulsion = self.pos - autre_poisson.pos
                     vecteur_repulsion_normalise = normaliser_vecteur(vecteur_repulsion)
                     # Appliquer une force de répulsion proportionnelle à l'inverse de la distance
                     force = (self.rayon_collision - distance) / self.rayon_collision * 10 # Entre 0 et 10
@@ -115,92 +115,52 @@ class Humain:
         else:
             pygame.draw.circle(screen, WHITE, self.pos, 2)
 
-    def calculer_pente(self,humain1,humain2):
-        a = (humain1.pos[1] - humain2.pos[1])/(humain1.pos[0] - humain2.pos[0])
-        return a
     
-    def cible_en_vue(self, dict_humains, index_cible):
-        """
-        Vérifie que la personne peut voir ses 2 cibles
-
-        Args : dict_humains
-
-        Returns : 1 booléen pour chaque cible
-        """
-        # Pente droite jusqu'à la cible
-        cible = dict_humains[index_cible]
-        a = self.calculer_pente(self, cible)
-
-        
-        for humain in dict_humains.values():
-            # Vérification pour cible 1
-            if humain != self and humain != cible :
-                if ((humain.pos[0] >= self.pos[0] and humain.pos[0] <= cible.pos[0]) or (humain.pos[0] <= self.pos[0] and humain.pos[0] >= cible.pos[0])) and ((humain.pos[1] >= self.pos[1] and humain.pos[1] <= cible.pos[1]) or (humain.pos[1] <= self.pos[1] and humain.pos[1] >= cible.pos[1])):
-                    
-                    # definir un rayon autour de chaque personne. Sachant que notre rayon de humain vers cette cible passe par le rayon de qqn, donc iil ne peut pas voir.
-
-                    a_humain = self.calculer_pente(self,humain)
-                    if abs(a - a_humain) < 5 : 
-                        cible_en_vue = False
-                else:
-                    # Humain n'est pas entre self et cible 1
-                    cible_en_vue = True
-        
-        return cible_en_vue
-
 
 font = pygame.font.Font(None, 24)
 
 class Interface:
     def __init__(self):
-        self.display_humain_list()
+        self.display_fish_list()
 
-    def display_humain_list(self):
-        """Display list of Humains"""
+    def display_fish_list(self):
+        """Display list of fish"""
         y_offset = 10
-        for humain in dict_humains.values():
-            text = font.render(f"Humain {humain.id}", True, WHITE)
+        for poisson in dict_poissons.values():
+            text = font.render(f"Poisson {poisson.id}", True, WHITE)
             screen.blit(text, (10, y_offset))
             y_offset += 30
 
     def check_click_on_list(self, mouse_pos):
-        """Check if humain in list is clicked"""
+        """Check if fish in list is clicked"""
         y_offset = 10
-        for humain in dict_humains.values():
+        for poisson in dict_poissons.values():
             text_rect = pygame.Rect(10, y_offset, 100, 30)
             if text_rect.collidepoint(mouse_pos):
-                return humain.id 
+                return poisson.id 
             y_offset += 30
         return None
 
-"""
-dico_test={"A": Humain(100,100,0),
-           "B": Humain(200, 100,1),
-           "C": Humain(300,300,2)}
-for humain in dico_test.values():
-    humain.choisir_cible(dico_test)
 
-dico_test["B"].court_chemin_vect() 
-"""
 
 # La dictionnaire des gens
-dict_humains = {}
+dict_poissons = {}
 dict_pos = {}
-selected_humain = None  # This will store the ID of the selected humain
+selected_fish = None  # This will store the ID of the selected fish
 
 # creation de l'interface
 interface = Interface()
 
 # Création des gens
 for i in range(20):
-    humain = Humain(randint(100,600),randint(100,500), i)
-    dict_humains[i] = humain
-    dict_pos[i] = humain.pos
+    poisson = Poisson(randint(100,600),randint(100,500), i)
+    dict_poissons[i] = poisson
+    dict_pos[i] = poisson.pos
 
 # Affecter les 2 cibles à chacun des gens
-for humain in dict_humains.values() :
-    dict_humains_temp = dict_humains.copy()
-    humain.choisir_cible(dict_humains_temp)
+for poisson in dict_poissons.values() :
+    dict_poissons_temp = dict_poissons.copy()
+    poisson.choisir_cible(dict_poissons_temp)
 
 # Boucle principale
 x = True
@@ -212,33 +172,30 @@ while x:
             sys.exit()
         elif event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = pygame.mouse.get_pos()
-                clicked_humain_id = interface.check_click_on_list(mouse_pos)
-                if clicked_humain_id is not None:
-                    selected_humain = clicked_humain_id
+                clicked_fish_id = interface.check_click_on_list(mouse_pos)
+                if clicked_fish_id is not None:
+                    selected_fish = clicked_fish_id
 
     screen.fill(BLACK)
     
-    # Draw the Humain list
-    interface.display_humain_list()
+    # Draw the fish list
+    interface.display_fish_list()
 
     # Étape 1 : Calculer les prochaines positions
     
-    for humain in dict_humains.values():
-        humain.calculer_prochaine_position(dict_humains)
+    for poisson in dict_poissons.values():
+        poisson.calculer_prochaine_position(dict_poissons)
 
     # Étape 2 : Mettre à jour les positions
     
-    for humain in dict_humains.values():
-        humain.pos = dict_pos[humain.id]
+    for poisson in dict_poissons.values():
+        poisson.pos = dict_pos[poisson.id]
 
-    # Afficher les humains
-    for humain in dict_humains.values():
-        if humain.id == selected_humain:
-            humain.afficher(highlight=True)
+    # Afficher les poissons
+    for poisson in dict_poissons.values():
+        if poisson.id == selected_fish:
+            poisson.afficher(highlight=True)
         else:
-            humain.afficher()
-    
-        
-        
+            poisson.afficher()
 
     pygame.display.update()
