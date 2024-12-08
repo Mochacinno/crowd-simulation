@@ -23,10 +23,10 @@ def calculer_distance(pos1, pos2):
     return np.linalg.norm(pos1 - pos2)
 
 class Humain:
-    def __init__(self, x, y, id, rayon_collision =10):
+    def __init__(self, x, y, id, rayon_collision = 30):
         self.id = id
         self.pos = np.array([x, y], dtype=float)
-        self.vitesse = 20
+        self.vitesse = 1
         self.tolerance = 2
         self.cible1 = None      # Instance de cible 1
         self.pos_percue_cible1 = (0,0) # Position percue par l'humain
@@ -36,7 +36,7 @@ class Humain:
          
 
     def choisir_cible(self, dict_humains):
-        target_ids = [key for key in dict_humains if key != self.id+1]
+        target_ids = [key for key in dict_humains if key != self.id]
 
         index_cible1, index_cible2 = np.random.choice(target_ids, 2, replace=False)
         self.cible1 = dict_humains[index_cible1]
@@ -82,11 +82,14 @@ class Humain:
         # tous les gens bougent en meme temps au lieu que humain1 bouge, qui donc modifie la position pour qqn qui a le cible de humain1
         repulsion = self.verifier_collisions(dict_humains)
         vect_dir = self.calculer_destination() - self.pos
+        prochaine_position = self.pos
         if np.linalg.norm(vect_dir) > self.tolerance : # Si on est loin de la destination
-            prochaine_position = self.pos + vect_dir / np.linalg.norm(vect_dir)
-            dict_pos[self.id] = prochaine_position + repulsion
-        else :  # Si on est proche de la destination
-            dict_pos[self.id] = self.pos + repulsion
+            prochaine_position = self.pos + normaliser_vecteur(vect_dir) * self.vitesse + repulsion
+        else : # Si on est proche de la situation
+            if np.linalg.norm(repulsion) > 0 :      
+                prochaine_position = self.pos + repulsion
+        dict_pos[self.id] = prochaine_position
+        
 
     def verifier_collisions(self, dict_humains):
         repulsion = 0
@@ -189,7 +192,7 @@ selected_humain = None  # This will store the ID of the selected humain
 interface = Interface()
 
 # Création des gens
-for i in range(6):
+for i in range(20):
     humain = Humain(randint(100,600),randint(100,500), i)
     dict_humains[i] = humain
     dict_pos[i] = humain.pos
