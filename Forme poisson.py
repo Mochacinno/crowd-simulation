@@ -43,7 +43,7 @@ while True:
     # Dessiner le poisson
     # Corps du poisson (cercle)
     circle_radius = 20
-    pygame.draw.circle(screen, white, (int(fish_pos[0]), int(fish_pos[1])), circle_radius)
+    pygame.draw.circle(screen, (255,0,0), (int(fish_pos[0]), int(fish_pos[1])), circle_radius)
 
     # Calculer les points du triangle (queue du poisson)
     triangle_length = 50  # Longueur de la queue
@@ -57,7 +57,7 @@ while True:
 
     
     # Dessiner le triangle
-    pygame.draw.polygon(screen, white, [point1, point2, point3])
+    pygame.draw.polygon(screen, (255,0,0), [point1, point2, point3])
 
     # Mettre à jour l'affichage
     pygame.display.flip()

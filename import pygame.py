@@ -13,22 +13,27 @@ pygame.display.set_caption("Mvt de Foule")
 
 screen.fill(BLACK)
 
-def normalize_vector(vector):
-    norm = np.linalg.norm(vector)
-    if norm == 0:
-        return vector
-    return vector / norm
+def normaliser_vecteur(vecteur):
+    norme = np.linalg.norm(vecteur)
+    if norme == 0:
+        return vecteur
+    return vecteur / norme
+
+def calculer_distance(pos1, pos2):
+    return np.linalg.norm(pos1 - pos2)
 
 class Humain:
-    def __init__(self, x, y, id):
+    def __init__(self, x, y, id, rayon_collision =10):
         self.id = id
-        self.pos = np.array([x, y])
-        self.tolerance = 1
+        self.pos = np.array([x, y], dtype=float)
+        self.vitesse = 20
+        self.tolerance = 2
         self.cible1 = None      # Instance de cible 1
         self.pos_percue_cible1 = (0,0) # Position percue par l'humain
         self.cible2 = None
         self.pos_percue_cible2 = (0,0)
-        
+        self.rayon_collision = rayon_collision  # Rayon de collision
+         
 
     def choisir_cible(self, dict_humains):
         target_ids = [key for key in dict_humains if key != self.id+1]
@@ -44,7 +49,7 @@ class Humain:
         x2, y2 = self.pos_percue_cible2
         vectdir = np.array([x1-x2, y1-y2])
         midpoint = (self.pos_percue_cible1 + self.pos_percue_cible2) / 2
-        perp_vectdir = normalize_vector(np.array([y1-y2, x2-x1]))
+        perp_vectdir = normaliser_vecteur(np.array([y1-y2, x2-x1]))
         res = np.linalg.solve([[perp_vectdir[0], vectdir[0]], [perp_vectdir[1], vectdir[1]]], self.pos - midpoint)
         self.destination = perp_vectdir * res[0] + midpoint
 
@@ -73,14 +78,31 @@ class Humain:
             return None 
         
 
-    def calculer_etat_suivant(self):
+    def calculer_prochaine_position(self, dict_humains):
         # tous les gens bougent en meme temps au lieu que humain1 bouge, qui donc modifie la position pour qqn qui a le cible de humain1
-        
+        repulsion = self.verifier_collisions(dict_humains)
         vect_dir = self.calculer_destination() - self.pos
-        if np.linalg.norm(vect_dir) > self.tolerance : # Si on est assez loin de la cible on bouge
-            self.pos = self.pos + vect_dir / np.linalg.norm(vect_dir)
-            dict_pos_suiv[self.id] = self.pos
-    
+        if np.linalg.norm(vect_dir) > self.tolerance : # Si on est loin de la destination
+            prochaine_position = self.pos + vect_dir / np.linalg.norm(vect_dir)
+            dict_pos[self.id] = prochaine_position + repulsion
+        else :  # Si on est proche de la destination
+            dict_pos[self.id] = self.pos + repulsion
+
+    def verifier_collisions(self, dict_humains):
+        repulsion = 0
+        for autre_humain in dict_humains.values():
+            if autre_humain != self:
+                distance = calculer_distance(self.pos, autre_humain.pos)
+                if distance < self.rayon_collision:
+                    # Calculer le vecteur de répulsion
+                    vecteur_repulsion = self.pos - autre_humain.pos
+                    vecteur_repulsion_normalise = normaliser_vecteur(vecteur_repulsion)
+                    # Appliquer une force de répulsion proportionnelle à l'inverse de la distance
+                    force = (self.rayon_collision - distance) / self.rayon_collision * 10 # Entre 0 et 10
+                    # Appliquer la force de répulsion
+                    repulsion += vecteur_repulsion_normalise * force
+        return repulsion
+
     def afficher(self, highlight=False):
         if highlight:
             pygame.draw.circle(screen, (255, 0, 0), self.calculer_destination(), 2)
@@ -161,14 +183,13 @@ dico_test["B"].court_chemin_vect()
 # La dictionnaire des gens
 dict_humains = {}
 dict_pos = {}
-dict_pos_suiv = {}
 selected_humain = None  # This will store the ID of the selected humain
 
 # creation de l'interface
 interface = Interface()
 
 # Création des gens
-for i in range(120):
+for i in range(6):
     humain = Humain(randint(100,600),randint(100,500), i)
     dict_humains[i] = humain
     dict_pos[i] = humain.pos
@@ -197,12 +218,24 @@ while x:
     # Draw the Humain list
     interface.display_humain_list()
 
+    # Étape 1 : Calculer les prochaines positions
+    
+    for humain in dict_humains.values():
+        humain.calculer_prochaine_position(dict_humains)
+
+    # Étape 2 : Mettre à jour les positions
+    
+    for humain in dict_humains.values():
+        humain.pos = dict_pos[humain.id]
+
+    # Afficher les humains
     for humain in dict_humains.values():
         if humain.id == selected_humain:
             humain.afficher(highlight=True)
         else:
             humain.afficher()
-        humain.calculer_etat_suivant()
-    dict_pos_prec = dict_pos_suiv
+    
+        
+        
 
     pygame.display.update()
