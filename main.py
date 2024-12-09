@@ -155,7 +155,7 @@ class Poisson:
                     vecteur_repulsion = self.pos - autre_poisson.pos
                     vecteur_repulsion_normalise = normaliser_vecteur(vecteur_repulsion)
                     # Appliquer une force de répulsion proportionnelle à l'inverse de la distance
-                    force = (self.rayon_collision - distance) / self.rayon_collision * 10 # Entre 0 et 10
+                    force = (self.rayon_collision - distance) / self.rayon_collision * 4 # Entre 0 et 10
                     # Appliquer la force de répulsion
                     repulsion += vecteur_repulsion_normalise * force
         return repulsion
@@ -166,6 +166,8 @@ class Poisson:
             pygame.draw.line(screen, (0, 0, 255), (self.pos), (self.cible1.pos))
             pygame.draw.line(screen, (0, 0, 255), (self.pos), (self.cible2.pos))
             pygame.draw.circle(screen, (0, 255, 0), self.pos, 2)
+        elif self.id in group_1_ids:
+            pygame.draw.circle(screen, (0, 200, 100), self.pos, 2)
         else:
             pygame.draw.circle(screen, WHITE, self.pos, 2)
 
@@ -195,24 +197,45 @@ class Interface:
             y_offset += 30
         return None
 
-# La dictionnaire des gens
+# La dictionnaire des poissons
 dict_poissons = {}
 dict_pos = {}
 selected_fish = None  # This will store the ID of the selected fish
 
-# creation de l'interface
-interface = Interface()
+# Number of fish in each group
+group_size = 40  # Total 80 fish, split into 2 groups
+group_1_ids = set(range(group_size))  # IDs 0-39 for Group 1
+group_2_ids = set(range(group_size, group_size * 2))  # IDs 40-79 for Group 2
+
+group_1 = {}
+group_2 = {}
 
 # Création des gens
 for i in range(80):
-    poisson = Poisson(randint(0,800),randint(0,600), i)
+
+    # Assign fish to their respective group
+    if i in group_1_ids:
+        poisson = Poisson(randint(0,300),randint(0,600), i)
+        group_1[i] = poisson
+    elif i in group_2_ids:
+        poisson = Poisson(randint(400,800),randint(0,600), i)
+        group_2[i] = poisson
+
+    # Adding to dictionairy
     dict_poissons[i] = poisson
     dict_pos[i] = poisson.pos
 
 # Affecter les 2 cibles à chacun des gens
-for poisson in dict_poissons.values() :
-    dict_poissons_temp = dict_poissons.copy()
+for poisson in group_1.values() :
+    dict_poissons_temp = group_1.copy()
     poisson.choisir_cible(dict_poissons_temp)
+
+for poisson in group_2.values() :
+    dict_poissons_temp = group_2.copy()
+    poisson.choisir_cible(dict_poissons_temp)
+
+# creation de l'interface
+interface = Interface()
 
 # Boucle principale
 x = True
