@@ -9,113 +9,157 @@ pygame.init()
 clock = pygame.time.Clock()
 screen_width, screen_height = 800, 600
 screen = pygame.display.set_mode((screen_width, screen_height))
-pygame.display.set_caption("Mvt de Foule")
+pygame.display.set_caption("Modélisation du banc de poisson")
 
 screen.fill(BLACK)
 
-class Humain:
-    def __init__(self, x, y, id):
-        self.id = id
-        vitesse = 10 
-        self.collision_radius = 10
-        self.pos = np.array([x, y])
+def normaliser_vecteur(vecteur):
+    norme = np.linalg.norm(vecteur)
+    if norme == 0:
+        return vecteur
+    return vecteur / norme
 
+def calculer_distance(pos1, pos2):
+    return np.linalg.norm(pos1 - pos2)
+
+class Poisson:
+    def __init__(self, x, y, id, rayon_collision = 30):
+        self.id = id
+        self.pos = np.array([x, y], dtype=float)
+        self.vitesse = 1
+        self.tolerance = 2
         self.cible1 = None      # Instance de cible 1
-        self.pos_percue_cible1 = (0,0) # Position percue par l'humain
+        self.pos_percue_cible1 = (0,0) # Position percue par le poisson
         self.cible2 = None
         self.pos_percue_cible2 = (0,0)
-        
-        self.priority = id
-        
+        self.rayon_collision = rayon_collision  # Rayon de collision
 
-    def choisir_cible(self, dict_humains):
-        target_ids = [key for key in dict_humains if key != self.id+1]
+    def choisir_cible(self, dict_poissons):
+        target_ids = [key for key in dict_poissons if key != self.id]
 
         index_cible1, index_cible2 = np.random.choice(target_ids, 2, replace=False)
-        self.cible1 = dict_humains[index_cible1]
-        self.cible2 = dict_humains[index_cible2]
+        self.cible1 = dict_poissons[index_cible1]
+        self.cible2 = dict_poissons[index_cible2]
+
+    def is_within_walls(self, destination, width=800, height=600):
+        """
+        Check if the destination point is within the bounds of a rectangular area.
+
+        Parameters:
+            destination (tuple or np.array): The point to check (x, y).
+            width (int): The width of the boundary (default: 800).
+            height (int): The height of the boundary (default: 600).
+
+        Returns:
+            bool: True if the point is within bounds, False otherwise.
+        """
+        x, y = destination
+        return 0 <= x <= width and 0 <= y <= height
+
 
     def calculer_destination(self):
+        mur_haut = [np.array([0, 0]), np.array([800, 0])]  # [start point, direction vector]
+        mur_bas = [np.array([0, 600]), np.array([800, 0])]
+        mur_gauche = [np.array([0, 0]), np.array([0, 600])]
+        mur_droite = [np.array([800, 0]), np.array([0, 600])]
+        liste_murs = [mur_haut, mur_bas, mur_gauche, mur_droite]
+
+        # Perceived target positions
         self.pos_percue_cible1 = self.cible1.pos
         self.pos_percue_cible2 = self.cible2.pos
         x1, y1 = self.pos_percue_cible1
         x2, y2 = self.pos_percue_cible2
-        vectdir = np.array([x1-x2, y1-y2])
+
+        # Compute direction vectors
+        vectdir = np.array([x1 - x2, y1 - y2])
+        perp_vectdir = normaliser_vecteur(np.array([y1 - y2, x2 - x1]))
         midpoint = (self.pos_percue_cible1 + self.pos_percue_cible2) / 2
-        perp_vectdir = np.array([y1-y2, x2-x1])
-        res = np.linalg.solve([[perp_vectdir[0], vectdir[0]], [perp_vectdir[1], vectdir[1]]], self.pos - midpoint)
-        self.destination = perp_vectdir * res[0] + midpoint
+
+        # Find the initial intersection point
+        point = self.line_intersection((self.pos, vectdir), (midpoint, perp_vectdir))
+
+        # If the point is outside walls, find the closest valid point
+        if not self.is_within_walls(point):
+            closest_point = None
+            closest_distance = float('inf')
+
+            # Loop through walls to find valid intersections
+            for mur in liste_murs:
+                wall_start = mur[0]
+                wall_end = wall_start + mur[1]
+
+                # Find the intersection with the wall
+                intersection = self.line_intersection((midpoint, perp_vectdir), mur)
+
+                # Validate intersection within wall bounds
+                if intersection is not None:
+                    if (
+                        min(wall_start[0], wall_end[0]) <= intersection[0] <= max(wall_start[0], wall_end[0])
+                        and min(wall_start[1], wall_end[1]) <= intersection[1] <= max(wall_start[1], wall_end[1])
+                    ):
+                        # Calculate distance from current position
+                        distance = np.linalg.norm(intersection - self.pos)
+                        if distance < closest_distance:
+                            closest_distance = distance
+                            closest_point = intersection
+
+            # Update destination to the closest valid point
+            if closest_point is not None:
+                self.destination = closest_point
+        else:
+            self.destination = point  # Use the valid point
 
         return self.destination
-    
-    def detect_collision(self, dict_humains):
-        for other in dict_humains.values():
-            if other.id != self.id:
-                distance = np.linalg.norm(self.pos - other.pos)
-                if distance < self.collision_radius:  # Collision detected
-                    return other  # Return the colliding Humain
-        return None
 
-    def trouve_mur_limite(self):
-        mur_haut = [np.array([0,0]), np.array([800,0])]     # [position d'1 point , vecteur directeur non normalisé]
-        mur_bas = [np.array([0,600]), np.array([800,0])]
-        mur_gauche = [np.array([0,0]), np.array([0,600])]
-        mur_droite = [np.array([800,0]), np.array([0,600])]
-        liste_murs = [mur_haut, mur_bas, mur_gauche, mur_droite]
-        trouve = False
-        i = 0
-        while not trouve and i < 4 :
-            a = np.array([[self.destination[0], - liste_murs[i][1][0]], [self.destination[1], - liste_murs[i][1][1]]])          
-            b = np.array([self.pos[0]- liste_murs[i][0][0]])                      # Système matriciel
-            alpha, beta = np.linalg.solve(a, b)
-            
-            if alpha >= 0 and alpha <= 1 and beta >= 0 and beta <= 1 :
-                trouve = True
-            else :
-                i += 1
-        return liste_murs[i]
-    
-    def is_head_on_collision(self, colliding_object):
-        # Calculate this object's direction
+    def line_intersection(self, line1, line2):
+        """
+        Finds the intersection point of two line segments, if it exists.
+        Parameters: 2 lines of format (point of the line, direction vector of the line)
+        Returns: The point of intersection, None if no intersection
+        """
+        pos1, vect_dir1 = line1
+        pos2, vect_dir2 = line2
+
+        line_cross_product = np.cross(vect_dir1, vect_dir2)
+
+        # Check if lines are parallel or almost parallel
+        if abs(line_cross_product) < 1e-10:
+            return None  # Lines are parallel or nearly so
+
+        pos_diff = pos2 - pos1
+        t = np.cross(pos_diff, vect_dir2) / line_cross_product
+
+        # Calculate intersection point
+        intersection = pos1 + t * vect_dir1
+        return intersection
+
+    def calculer_prochaine_position(self, dict_poissons):
+        
+        repulsion = self.verifier_collisions(dict_poissons)
         vect_dir = self.calculer_destination() - self.pos
-        vect_dir /= np.linalg.norm(vect_dir)  # Normalize direction
+        prochaine_position = self.pos
+        if np.linalg.norm(vect_dir) > self.tolerance : # Si on est loin de la destination
+            prochaine_position = self.pos + normaliser_vecteur(vect_dir) * self.vitesse + repulsion
+        else : # Si on est proche de la situation
+            if np.linalg.norm(repulsion) > 0 :      
+                prochaine_position = self.pos + repulsion
+        dict_pos[self.id] = prochaine_position
+        
+    def verifier_collisions(self, dict_poissons):
+        repulsion = 0
+        for autre_poisson in dict_poissons.values():
+            if autre_poisson != self:
+                distance = calculer_distance(self.pos, autre_poisson.pos)
+                if distance < self.rayon_collision:
+                    # Calculer le vecteur de répulsion
+                    vecteur_repulsion = self.pos - autre_poisson.pos
+                    vecteur_repulsion_normalise = normaliser_vecteur(vecteur_repulsion)
+                    # Appliquer une force de répulsion proportionnelle à l'inverse de la distance
+                    force = (self.rayon_collision - distance) / self.rayon_collision * 10 # Entre 0 et 10
+                    # Appliquer la force de répulsion
+                    repulsion += vecteur_repulsion_normalise * force
+        return repulsion
 
-        # Future position
-        future_pos = self.pos + vect_dir
-
-        # Vector from the colliding object to the future position
-        to_future_pos = future_pos - colliding_object.pos
-
-        # Colliding object's direction vector
-        colliding_dir = colliding_object.calculer_destination() - colliding_object.pos
-        colliding_dir /= np.linalg.norm(colliding_dir)  # Normalize direction
-
-        # Calculate cross product (2D version)
-        cross_product = colliding_dir[0] * to_future_pos[1] - colliding_dir[1] * to_future_pos[0]
-
-        # Determine lateral direction based on cross product
-        if cross_product > 0:
-            return np.array([-vect_dir[1], vect_dir[0]])  # Future position is on the left
-        elif cross_product <= 0:
-            return np.array([vect_dir[1], -vect_dir[0]])  # Future position is on the right
-
-    def calculer_etat_suivant(self):
-        # tous les gens bougent en meme temps au lieu que humain1 bouge, qui donc modifie la position pour qqn qui a le cible de humain1
-        vect_dir = self.calculer_destination() - self.pos
-
-        # collisions
-        colliding_object = self.detect_collision(dict_humains)
-        if colliding_object is not None:
-            # celui avec une priorite plus bas va pas bouger
-            if self.priority > colliding_object.priority:
-                # si en plus le trajectoire de celui qui bouge est confondu avec l'autre point
-                #lateral_movement = self.is_head_on_collision(colliding_object)
-                self.pos = (self.pos + vect_dir / np.linalg.norm(vect_dir)) + np.array([-vect_dir[1], vect_dir[0]])
-                #self.pos = (self.pos + vect_dir / np.linalg.norm(vect_dir))
-        else:
-            self.pos = self.pos + vect_dir / np.linalg.norm(vect_dir)
-        dict_pos_suiv[self.id] = self.pos
-    
     def afficher(self, highlight=False):
         if highlight:
             pygame.draw.circle(screen, (255, 0, 0), self.calculer_destination(), 2)
@@ -125,99 +169,54 @@ class Humain:
         else:
             pygame.draw.circle(screen, WHITE, self.pos, 2)
 
-    def calculer_pente(self,humain1,humain2):
-        a = (humain1.pos[1] - humain2.pos[1])/(humain1.pos[0] - humain2.pos[0])
-        return a
-
-    def cible_en_vue(self, dict_humains):
-        """
-        Vérifie que la personne peut voir ses 2 cibles
-
-        Args : dict_humains
-
-        Returns : 1 booléen pour chaque cible
-        """
-        cibles_en_vue = []
-        for index_cible in [self.cible_1, self.cible_2]:
-            # Pente droite jusqu'à la cible
-            cible = dict_humains[index_cible]
-            vectdir = np.array([self.pos[0]-cible.pos[0], self.pos[1]-cible.pos[1]])
-            cible_en_vue = True
-        # Pente droite jusqu'à la cible
-        cible = dict_humains[index_cible]
-        a = self.calculer_pente(self, cible)
-
-        for humain in dict_humains.values():
-            # Vérification pour cible 1
-            if humain != self and humain != cible :
-                if ((humain.pos[0] >= self.pos[0] and humain.pos[0] <= cible.pos[0]) or (humain.pos[0] <= self.pos[0] and humain.pos[0] >= cible.pos[0])) and ((humain.pos[1] >= self.pos[1] and humain.pos[1] <= cible.pos[1]) or (humain.pos[1] <= self.pos[1] and humain.pos[1] >= cible.pos[1])):
-                    # definir un rayon autour de chaque personne. Sachant que notre rayon de humain vers cette cible passe par le rayon de qqn, donc iil ne peut pas voir.
-                    d = np.linalg.norm(np.cross(vectdir, np.array([self.pos[0] - humain.pos[0], self.pos[1] - humain.pos[1]]))/ np.linalg.norm(vectdir))
-                    #print(d)
-                    if d <= 5:
-                        cible_en_vue = False
-        cibles_en_vue.append(cible_en_vue)
-        return cibles_en_vue
-
+    
 font = pygame.font.Font(None, 24)
+
 
 class Interface:
     def __init__(self):
-        self.display_humain_list()
+        self.display_fish_list()
 
-    def display_humain_list(self):
-        """Display list of Humains"""
+    def display_fish_list(self):
+        """Display list of fish"""
         y_offset = 10
-        for humain in dict_humains.values():
-            text = font.render(f"Humain {humain.id}", True, WHITE)
+        for poisson in dict_poissons.values():
+            text = font.render(f"Poisson {poisson.id}", True, WHITE)
             screen.blit(text, (10, y_offset))
             y_offset += 30
 
     def check_click_on_list(self, mouse_pos):
-        """Check if humain in list is clicked"""
+        """Check if fish in list is clicked"""
         y_offset = 10
-        for humain in dict_humains.values():
+        for poisson in dict_poissons.values():
             text_rect = pygame.Rect(10, y_offset, 100, 30)
             if text_rect.collidepoint(mouse_pos):
-                return humain.id 
+                return poisson.id 
             y_offset += 30
         return None
 
-"""
-dico_test={"A": Humain(100,100,0),
-           "B": Humain(200, 100,1),
-           "C": Humain(300,300,2)}
-for humain in dico_test.values():
-    humain.choisir_cible(dico_test)
-
-dico_test["B"].court_chemin_vect() 
-"""
-
 # La dictionnaire des gens
-dict_humains = {}
+dict_poissons = {}
 dict_pos = {}
-dict_pos_suiv = {}
-selected_humain = None  # This will store the ID of the selected humain
+selected_fish = None  # This will store the ID of the selected fish
 
 # creation de l'interface
 interface = Interface()
 
 # Création des gens
-for i in range(20):
-    humain = Humain(randint(100,600),randint(100,500), i)
-    dict_humains[i] = humain
-    dict_pos[i] = humain.pos
+for i in range(80):
+    poisson = Poisson(randint(0,800),randint(0,600), i)
+    dict_poissons[i] = poisson
+    dict_pos[i] = poisson.pos
 
 # Affecter les 2 cibles à chacun des gens
-for humain in dict_humains.values() :
-    dict_humains_temp = dict_humains.copy()
-    humain.choisir_cible(dict_humains_temp)
+for poisson in dict_poissons.values() :
+    dict_poissons_temp = dict_poissons.copy()
+    poisson.choisir_cible(dict_poissons_temp)
 
-t = 0
 # Boucle principale
 x = True
-y = False
-while x and not y or x and y or not x and not y or not x and y:
+while x:
     clock.tick(60)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -225,23 +224,30 @@ while x and not y or x and y or not x and not y or not x and y:
             sys.exit()
         elif event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = pygame.mouse.get_pos()
-                clicked_humain_id = interface.check_click_on_list(mouse_pos)
-                if clicked_humain_id is not None:
-                    selected_humain = clicked_humain_id
+                clicked_fish_id = interface.check_click_on_list(mouse_pos)
+                if clicked_fish_id is not None:
+                    selected_fish = clicked_fish_id
 
     screen.fill(BLACK)
     
-    # Draw the Humain list
-    interface.display_humain_list()
+    # Draw the fish list
+    interface.display_fish_list()
 
-    for humain in dict_humains.values():
-        if humain.id == selected_humain:
-            humain.afficher(highlight=True)
+    # Étape 1 : Calculer les prochaines positions
+    
+    for poisson in dict_poissons.values():
+        poisson.calculer_prochaine_position(dict_poissons)
+
+    # Étape 2 : Mettre à jour les positions
+    
+    for poisson in dict_poissons.values():
+        poisson.pos = dict_pos[poisson.id]
+
+    # Afficher les poissons
+    for poisson in dict_poissons.values():
+        if poisson.id == selected_fish:
+            poisson.afficher(highlight=True)
         else:
-            humain.afficher()
-        #humain.bouger()
-        humain.calculer_etat_suivant()
-    t += 1
-    dict_pos_prec = dict_pos_suiv
+            poisson.afficher()
 
     pygame.display.update()
