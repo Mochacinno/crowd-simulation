@@ -38,7 +38,7 @@ class Humain:
         for other in dict_humains.values():
             if other.id != self.id:
                 distance = np.linalg.norm(self.pos - other.pos)
-                if distance < self.collision_radius * 16:  # Collision detected
+                if distance < self.collision_radius * 8:  # Collision detected
                     return other  # Return the colliding Humain
         return None
     
@@ -83,6 +83,8 @@ class Humain:
         # else:
             #self.pos = self.pos + vect_dir / np.linalg.norm(vect_dir)
                 #self.pos = self.pos + vect_dir / np.linalg.norm(vect_dir)
+            else:
+                self.pos = self.pos + np.array([-vect_dir_normal[1], vect_dir_normal[0]])
         else:
             self.pos = self.pos + vect_dir / np.linalg.norm(vect_dir)
         dict_pos_suiv[self.id] = self.pos
@@ -97,7 +99,7 @@ class Humain:
         else:
 
             pygame.draw.circle(screen, WHITE, self.pos, 2)
-            pygame.draw.circle(screen, (255, 255, 0), self.pos, self.collision_radius * 8, 2)
+            pygame.draw.circle(screen, (255, 255, 0), self.pos, self.collision_radius * 4, 2)
 
 font = pygame.font.Font(None, 24)
 
@@ -127,8 +129,9 @@ class Interface:
 dict_pos_prec = {}
 dict_pos_suiv = {}
 
-dico_test={0: Humain(300, 300, 0, [700, 300]),
-           1: Humain(500, 300, 1, [100, 300])}
+#dico_test={0: Humain(300, 300, 0, [700, 300]), 1: Humain(500, 300, 1, [100, 300])}
+
+dico_test={0: Humain(300, 200, 0, [700, 300]), 1: Humain(500, 300, 1, [100, 200])}
 
 for i in range(len(dico_test)):
     dict_pos_prec[i] = dico_test[i].pos
@@ -143,7 +146,7 @@ t = 0
 x = True
 y = False
 while x and not y or x and y or not x and not y or not x and y:
-    clock.tick(30)
+    clock.tick(60)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
