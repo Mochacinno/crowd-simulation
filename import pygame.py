@@ -22,11 +22,14 @@ def normaliser_vecteur(vecteur):
 def calculer_distance(pos1, pos2):
     return np.linalg.norm(pos1 - pos2)
 
+
+
 class Poisson:
     def __init__(self, x, y, id, rayon_collision = 30):
         self.id = id
         self.pos = np.array([x, y], dtype=float)
         self.vitesse = 2
+        self.vitesse_reelle = None
         self.tolerance = 2
         self.cible1 = None      # Instance de cible 1
         self.pos_percue_cible1 = (0,0) # Position percue par le poisson
@@ -88,6 +91,8 @@ class Poisson:
             if np.linalg.norm(repulsion) > 0 :      
                 prochaine_position = self.pos + repulsion
         dict_pos[self.id] = prochaine_position
+        self.vitesse_reelle = np.linalg.norm((prochaine_position - self.pos) / (1/60))
+        
         
 
     def verifier_collisions(self, dict_poissons):
@@ -162,6 +167,7 @@ for poisson in dict_poissons.values() :
     poisson.choisir_cible(dict_poissons_temp)
 
 # Boucle principale
+
 x = True
 while x:
     clock.tick(60)
