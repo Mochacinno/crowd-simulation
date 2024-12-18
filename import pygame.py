@@ -26,7 +26,7 @@ class Poisson:
     def __init__(self, x, y, id, rayon_collision = 30):
         self.id = id
         self.pos = np.array([x, y], dtype=float)
-        self.vitesse = 1
+        self.vitesse = 2
         self.tolerance = 2
         self.cible1 = None      # Instance de cible 1
         self.pos_percue_cible1 = (0,0) # Position percue par le poisson
@@ -37,7 +37,6 @@ class Poisson:
 
     def choisir_cible(self, dict_poissons):
         target_ids = [key for key in dict_poissons if key != self.id]
-
         index_cible1, index_cible2 = np.random.choice(target_ids, 2, replace=False)
         self.cible1 = dict_poissons[index_cible1]
         self.cible2 = dict_poissons[index_cible2]
@@ -50,8 +49,8 @@ class Poisson:
         vectdir = np.array([x1-x2, y1-y2])
         midpoint = (self.pos_percue_cible1 + self.pos_percue_cible2) / 2
         perp_vectdir = normaliser_vecteur(np.array([y1-y2, x2-x1]))
-        res = np.linalg.solve([[perp_vectdir[0], vectdir[0]], [perp_vectdir[1], vectdir[1]]], self.pos - midpoint)
-        self.destination = perp_vectdir * res[0] + midpoint
+        s,t = np.linalg.solve([[perp_vectdir[0], -vectdir[0]], [perp_vectdir[1], -vectdir[1]]], self.pos - midpoint)
+        self.destination = midpoint + s * perp_vectdir
 
         return self.destination
 
@@ -152,7 +151,7 @@ selected_fish = None  # This will store the ID of the selected fish
 interface = Interface()
 
 # Création des gens
-for i in range(20):
+for i in range(100):
     poisson = Poisson(randint(100,600),randint(100,500), i)
     dict_poissons[i] = poisson
     dict_pos[i] = poisson.pos
