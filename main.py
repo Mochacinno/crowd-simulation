@@ -40,12 +40,12 @@ class Poisson:
     def __init__(self, x, y, id, rayon_collision = 30):
         self.id = id
         self.pos = np.array([x, y], dtype=float)
-        self.vitesse = 2
-        self.tolerance = 2
-        self.cible1 = None
-        self.cible2 = None
-        self.pos_percue_cible1 = (0,0) # Position percue par le poisson
-        self.pos_percue_cible2 = (0,0)
+        self.vitesse = 1
+        self.tolerance = 3
+        #self.cible1 = None
+        #self.cible2 = None
+        #self.pos_percue_cible1 = None # Position percue par le poisson
+        #self.pos_percue_cible2 = None
         self.rayon_collision = rayon_collision  # Rayon de collision
 
     def choisir_cible(self, dict_poissons):
@@ -54,6 +54,8 @@ class Poisson:
         index_cible1, index_cible2 = np.random.choice(target_ids, 2, replace=False)
         self.cible1 = dict_poissons[index_cible1]
         self.cible2 = dict_poissons[index_cible2]
+        self.pos_percue_cible1 = self.cible1.pos
+        self.pos_percue_cible2 = self.cible2.pos
 
     def is_within_walls(self, point):
         """
@@ -71,10 +73,19 @@ class Poisson:
         return zone_area[0][0] <= x <= zone_area[1][0] and zone_area[0][1] <= y <= zone_area[1][1]
 
     def calculer_destination(self):
-        destination = np.array([0,0])
+        #destination = np.array([0,0])
         # Perceived target positions
-        self.pos_percue_cible1 = self.cible1.pos
-        self.pos_percue_cible2 = self.cible2.pos
+        # TODO: when in initiation it doesnt see its target, it will compute the destination with (0,0) as the unknown targets coords when it should just stay still
+        cibles_en_vue = self.cible_en_vue(dict_poissons)
+        if cibles_en_vue[0]: # si on voit cible1
+            self.pos_percue_cible1 = self.cible1.pos
+        #else: 
+            #print(f"poisson {self.id} cant see cible1")
+        if cibles_en_vue[1]: # si on voit cible2
+            self.pos_percue_cible2 = self.cible2.pos
+        #else:
+            #print(f"poisson {self.id} cant see cible2")
+        
         x1, y1 = self.pos_percue_cible1
         x2, y2 = self.pos_percue_cible2
 
@@ -84,10 +95,9 @@ class Poisson:
         midpoint = (self.pos_percue_cible1 + self.pos_percue_cible2) / 2
 
         # Find the initial intersection point
-        point = self.line_intersection((self.pos, vectdir), (midpoint, perp_vectdir))
-
+        destination = self.line_intersection((self.pos, vectdir), (midpoint, perp_vectdir))
         # If the point is outside walls, find the closest valid point
-        if not self.is_within_walls(point):
+        if not self.is_within_walls(destination):
             closest_point = None
             closest_distance = float('inf')
 
@@ -110,12 +120,11 @@ class Poisson:
                         if distance < closest_distance:
                             closest_distance = distance
                             closest_point = intersection
+                
 
             # Update destination to the closest valid point
             if closest_point is not None:
                 destination = closest_point
-        else:
-            destination = point  # Use the valid point
 
         return destination
 
@@ -147,10 +156,9 @@ class Poisson:
         vect_dir = self.calculer_destination() - self.pos
         prochaine_position = self.pos
         if np.linalg.norm(vect_dir) > self.tolerance : # Si on est loin de la destination
-            prochaine_position = self.pos + normaliser_vecteur(vect_dir) * self.vitesse + repulsion
-        else : # Si on est proche de la situation
-            if np.linalg.norm(repulsion) > 0 :      
-                prochaine_position = self.pos 
+            prochaine_position = self.pos + normaliser_vecteur(normaliser_vecteur(vect_dir) + repulsion) * self.vitesse # qui fait deplacer nos poissons
+        else :
+            prochaine_position = self.pos + vect_dir
         dict_pos[self.id] = prochaine_position
         
     def verifier_collisions(self, dict_poissons):
@@ -162,22 +170,52 @@ class Poisson:
                     # Calculer le vecteur de répulsion
                     vecteur_repulsion = self.pos - autre_poisson.pos
                     vecteur_repulsion_normalise = normaliser_vecteur(vecteur_repulsion)
-                    # Appliquer une force de répulsion proportionnelle à l'inverse de la distance
-                    force = (self.rayon_collision - distance) / self.rayon_collision * 4 # Entre 0 et 10
+                    # poids pour chaque force de repulsion entre poissons (inversement proportionnelle à la distance)
+                    force = (self.rayon_collision - distance) / distance
                     # Appliquer la force de répulsion
                     repulsion += vecteur_repulsion_normalise * force
         return repulsion
 
+    def cible_en_vue(self, dict_poissons):
+        """
+        Vérifie que la personne peut voir ses 2 cibles
+
+        Args : dict_poissons
+
+        Returns : 1 booléen pour chaque cible
+        """
+        cibles_en_vue = []
+        for cible in [self.cible1, self.cible2]:
+            # Pente droite jusqu'à la cible
+            vectdir = self.pos-cible.pos
+            cible_en_vue = True
+            while cible_en_vue == True:
+                for poisson in dict_poissons.values():
+                    # Vérification pour cible 1
+                    if poisson != self and poisson != cible :
+                        min_pos = np.minimum(self.pos, cible.pos)
+                        max_pos = np.maximum(self.pos, cible.pos)
+                        if np.all((poisson.pos >= min_pos) & (poisson.pos <= max_pos)):
+                            perpvectdir = np.array([-vectdir[1], vectdir[0]])
+                            distance = np.linalg.norm(poisson.pos - self.line_intersection((self.pos, vectdir), (poisson.pos, perpvectdir)))
+                            if distance < 5:
+                                cible_en_vue = False
+                                break
+                else: 
+                    break
+            cibles_en_vue.append(cible_en_vue)
+        return cibles_en_vue
+    
     def afficher(self, highlight=False):
         # draw walls
         for mur in liste_murs:
             pygame.draw.line(screen, WHITE, mur[0], mur[0]+mur[1])
         if highlight:
             pygame.draw.circle(screen, (255, 0, 0), self.calculer_destination(), 2)
-            pygame.draw.line(screen, (0, 0, 255), (self.pos), (self.cible1.pos))
-            pygame.draw.line(screen, (0, 0, 255), (self.pos), (self.cible2.pos))
+            pygame.draw.line(screen, (0, 0, 255), (self.pos), (self.pos_percue_cible1))
+            pygame.draw.line(screen, (0, 0, 255), (self.pos), (self.pos_percue_cible2))
             pygame.draw.circle(screen, (0, 255, 0), self.pos, 2)
-        elif self.id in group_1_ids:
+        if self.id in group_1_ids:
             pygame.draw.circle(screen, (0, 200, 100), self.pos, 2)
         else:
             pygame.draw.circle(screen, WHITE, self.pos, 2)
@@ -260,11 +298,13 @@ def generate_groups_with_exact_centroid_distance(group_num, group_radius, separa
 
     return group_1_fish, group_2_fish
 
+
 # define zone area
 zone_area = define_model_zone()
-
-#group_1, group_2 = generate_groups_with_exact_centroid_distance(num_poissons, 50, init_group_separation, zone_area)
 liste_murs = define_walls()
+
+### GROUP TESTING
+
 
 group_1, group_2 = generate_groups_with_exact_centroid_distance(group_num, group_radius, init_group_separation, zone_area)
 
@@ -273,40 +313,60 @@ dict_poissons = {}
 dict_pos = {}
 selected_fish = None  # This will store the ID of the selected fish
 
-## Number of fish in each group
-#group_size = 40  # Total 80 fish, split into 2 groups
-#group_1_ids = set(range(group_size))  # IDs 0-39 for Group 1
-#group_2_ids = set(range(group_size, group_size * 2))  # IDs 40-79 for Group 2
-#
-#group_1 = {}
-#group_2 = {}
+# Number of fish in each group
+group_size = int(group_num / 2)  # Total 80 fish, split into 2 groups
+group_1_ids = set(range(group_size))  # IDs 0-39 for Group 1
+group_2_ids = set(range(group_size, group_size * 2))  # IDs 40-79 for Group 2
 
-## Création des gens
-#for i in range(num_poissons):
-#
-#    # Assign fish to their respective group
-#    if i in group_1_ids:
-#        poisson = Poisson(randint(0,300),randint(0,600), i)
-#        group_1[i] = poisson
-#    elif i in group_2_ids:
-#        poisson = Poisson(randint(400,800),randint(0,600), i)
-#        group_2[i] = poisson
-#
-#    # Adding to dictionairy
-#    dict_poissons[i] = poisson
-#    dict_pos[i] = poisson.pos
-#
-## Affecter les 2 cibles à chacun des gens
-#for poisson in group_1.values() :
-#    dict_poissons_temp = group_1.copy()
-#    poisson.choisir_cible(dict_poissons_temp)
-#
-#for poisson in group_2.values() :
-#    dict_poissons_temp = group_2.copy()
-#    poisson.choisir_cible(dict_poissons_temp)
+group_1 = {}
+group_2 = {}
+
+# Création des gens
+for i in range(group_num):
+
+   # Assign fish to their respective group
+   if i in group_1_ids:
+       poisson = Poisson(randint(0,300),randint(0,600), i)
+       group_1[i] = poisson
+   elif i in group_2_ids:
+       poisson = Poisson(randint(400,800),randint(0,600), i)
+       group_2[i] = poisson
+
+   # Adding to dictionairy
+   dict_poissons[i] = poisson
+   dict_pos[i] = poisson.pos
+
+# Affecter les 2 cibles à chacun des gens
+for poisson in group_1.values() :
+   dict_poissons_temp = group_1.copy()
+   poisson.choisir_cible(dict_poissons_temp)
+
+for poisson in group_2.values() :
+   dict_poissons_temp = group_2.copy()
+   poisson.choisir_cible(dict_poissons_temp)
 
 
+"""
+### SIMPLE CASES
 
+# La dictionnaire des poissons
+dict_poissons = {}
+dict_pos = {}
+selected_fish = None  # This will store the ID of the selected fish
+
+# Création des gens
+for i in range(10):
+    poisson = Poisson(randint(100,700),randint(100,400), i)
+    dict_poissons[i] = poisson
+    dict_pos[i] = poisson.pos
+
+# Affecter les 2 cibles à chacun des gens
+for poisson in dict_poissons.values() :
+   dict_poissons_temp = dict_poissons.copy()
+   poisson.choisir_cible(dict_poissons_temp)
+"""
+
+### END OF CASES
 
 # creation de l'interface
 interface = Interface()
@@ -336,7 +396,6 @@ while x:
         poisson.calculer_prochaine_position(dict_poissons)
 
     # Étape 2 : Mettre à jour les positions
-    
     for poisson in dict_poissons.values():
         poisson.pos = dict_pos[poisson.id]
 

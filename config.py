@@ -5,5 +5,5 @@ screen_width, screen_height = 900, 600
 model_width, model_height = 800, 500
 
 init_group_separation = 50
-group_num = 20
+group_num = 30
 group_radius = 100
