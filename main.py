@@ -5,10 +5,11 @@ from config import *
 import numpy as np
 import math
 
-pygame.init()
+#pygame.init()
 clock = pygame.time.Clock()
 screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption("Modélisation du banc de poisson")
+font = pygame.font.Font(None, 24)
 
 def define_model_zone():
     width_spacing = (screen_width - model_width) / 2
@@ -35,6 +36,64 @@ def normaliser_vecteur(vecteur):
 
 def calculer_distance(pos1, pos2):
     return np.linalg.norm(pos1 - pos2)
+
+def generate_groups_with_exact_centroid_distance(group_num, group_radius, separation_distance, zone_area):
+    # we assume that the walls dont pose problem to the fish generation so we will generate the 2 imaginary centroids in the middle
+    # the group radius must not make it that the point will be generated outside the border
+    # Step 1: Initialize the first centroid within a space in the center
+    midpoint = (zone_area[0] + zone_area[1]) / 2
+    target_centroid_1 = (midpoint[0] - separation_distance / 2, midpoint[1])
+    #print(f"target centroid for group1 {target_centroid_1}")
+    # Step 2: Calculate the position of the second centroid with the desired separation
+    #angle = np.random.uniform(np.pi, 2 * np.pi)  # Random angle for separation
+    target_centroid_2 = (midpoint[0] + separation_distance / 2, midpoint[1])
+
+    # Step 3: Generate points for each group around the theoretical centroid
+    def generate_group(center):
+        return [
+            (
+                np.random.normal(center[0], group_radius / 2),
+                np.random.normal(center[1], group_radius / 2)
+            )
+            for _ in range(group_num)
+        ]
+
+    group_1 = generate_group(target_centroid_1)
+    group_2 = generate_group(target_centroid_2)
+
+    # Step 4: Adjust centroids to maintain exact separation
+    def recalculate_centroid(points):
+        return (
+            sum(point[0] for point in points) / group_num,
+            sum(point[1] for point in points) / group_num
+        )
+
+    centroid_1_actual = recalculate_centroid(group_1)
+    #print(f"actual centroid for group1 {centroid_1_actual}")
+    centroid_2_actual = recalculate_centroid(group_2)
+
+    # Shift points to adjust centroids if necessary
+    def shift_group(points, current_centroid, target_centroid):
+        shift_vector = np.array(target_centroid) - np.array(current_centroid)
+        return [(x + shift_vector[0], y + shift_vector[1]) for x, y in points]
+
+    group_1 = shift_group(group_1, centroid_1_actual, target_centroid_1)
+    #print(f"after shift, actual centroid for group1 {recalculate_centroid(group_1)}")
+    group_2 = shift_group(group_2, centroid_2_actual, target_centroid_2)
+    
+    group_1_fish = {}
+    for i, coordinate in enumerate(group_1):
+        group_1_fish[i] = Poisson(coordinate[0], coordinate[1], i)
+
+    group_2_fish = {}
+    for i, coordinate in enumerate(group_2):
+        group_2_fish[i + group_num] = Poisson(coordinate[0], coordinate[1], i + group_num)
+
+    return group_1_fish, group_2_fish
+
+# define zone area
+zone_area = define_model_zone()
+liste_murs = define_walls()
 
 class Poisson:
     def __init__(self, x, y, id, rayon_collision = 10):
@@ -259,27 +318,6 @@ class Poisson:
 
             cibles_en_vue.append(not obstructed)
         return cibles_en_vue
-    
-    def debug_afficher(self, highlight=False):
-
-        # TODO: procedural generated fish
-        #body_size = [10, 10, 10]
-        # distance constraint
-        # one point that moves, all the other points follow
-        # draw walls 
-        for mur in liste_murs:
-            pygame.draw.line(screen, WHITE, mur[0], mur[0]+mur[1])
-        if highlight:
-             pygame.draw.circle(screen, (255, 0, 0), self.calculer_destination(), 2)
-             pygame.draw.line(screen, (0, 0, 255), (self.pos), (self.pos_percue_cible1))
-             pygame.draw.line(screen, (0, 0, 255), (self.pos), (self.pos_percue_cible2))
-             pygame.draw.circle(screen, (0, 255, 0), self.pos, 2)
-        pygame.draw.circle(screen, (0, 200, 100), self.pos, self.rayon_collision, 1)       
-        if self.id in group_1_ids:
-            pygame.draw.circle(screen, (0, 200, 100), self.pos, 2)
-        else:
-            pygame.draw.circle(screen, WHITE, self.pos, 2)
-        pygame.draw.line(screen, (10, 50, 155), (self.pos), (self.pos + self.arrow*50))
 
     def afficher(self, group_1_ids):
         for mur in liste_murs:
@@ -289,221 +327,6 @@ class Poisson:
             pygame.draw.circle(screen, (0, 200, 100), self.pos, 2)
         else:
             pygame.draw.circle(screen, WHITE, self.pos, 2)
-
-
-
-font = pygame.font.Font(None, 24)
-
-
-class Interface:
-    def __init__(self):
-        self.display_fish_list()
-
-    def display_fish_list(self):
-        """Display list of fish"""
-        y_offset = 10
-        for poisson in dict_poissons.values():
-            text = font.render(f"Poisson {poisson.id}", True, WHITE)
-            screen.blit(text, (10, y_offset))
-            y_offset += 30
-
-    def check_click_on_list(self, mouse_pos):
-        """Check if fish in list is clicked"""
-        y_offset = 10
-        for poisson in dict_poissons.values():
-            text_rect = pygame.Rect(10, y_offset, 100, 30)
-            if text_rect.collidepoint(mouse_pos):
-                return poisson.id 
-            y_offset += 30
-        return None
-
-def generate_groups_with_exact_centroid_distance(group_num, group_radius, separation_distance, zone_area):
-    # we assume that the walls dont pose problem to the fish generation so we will generate the 2 imaginary centroids in the middle
-    # the group radius must not make it that the point will be generated outside the border
-    # Step 1: Initialize the first centroid within a space in the center
-    midpoint = (zone_area[0] + zone_area[1]) / 2
-    target_centroid_1 = (midpoint[0] - separation_distance / 2, midpoint[1])
-    #print(f"target centroid for group1 {target_centroid_1}")
-    # Step 2: Calculate the position of the second centroid with the desired separation
-    #angle = np.random.uniform(np.pi, 2 * np.pi)  # Random angle for separation
-    target_centroid_2 = (midpoint[0] + separation_distance / 2, midpoint[1])
-
-    # Step 3: Generate points for each group around the theoretical centroid
-    def generate_group(center):
-        return [
-            (
-                np.random.normal(center[0], group_radius / 2),
-                np.random.normal(center[1], group_radius / 2)
-            )
-            for _ in range(group_num)
-        ]
-
-    group_1 = generate_group(target_centroid_1)
-    group_2 = generate_group(target_centroid_2)
-
-    # Step 4: Adjust centroids to maintain exact separation
-    def recalculate_centroid(points):
-        return (
-            sum(point[0] for point in points) / group_num,
-            sum(point[1] for point in points) / group_num
-        )
-
-    centroid_1_actual = recalculate_centroid(group_1)
-    #print(f"actual centroid for group1 {centroid_1_actual}")
-    centroid_2_actual = recalculate_centroid(group_2)
-
-    # Shift points to adjust centroids if necessary
-    def shift_group(points, current_centroid, target_centroid):
-        shift_vector = np.array(target_centroid) - np.array(current_centroid)
-        return [(x + shift_vector[0], y + shift_vector[1]) for x, y in points]
-
-    group_1 = shift_group(group_1, centroid_1_actual, target_centroid_1)
-    #print(f"after shift, actual centroid for group1 {recalculate_centroid(group_1)}")
-    group_2 = shift_group(group_2, centroid_2_actual, target_centroid_2)
-    
-    group_1_fish = {}
-    for i, coordinate in enumerate(group_1):
-        group_1_fish[i] = Poisson(coordinate[0], coordinate[1], i)
-
-    group_2_fish = {}
-    for i, coordinate in enumerate(group_2):
-        group_2_fish[i + group_num] = Poisson(coordinate[0], coordinate[1], i + group_num)
-
-    return group_1_fish, group_2_fish
-
-
-# define zone area
-zone_area = define_model_zone()
-liste_murs = define_walls()
-
-# La dictionnaire des poissons
-dict_poissons = {}
-dict_pos = {}
-selected_fish = None  # This will store the ID of the selected fish
-
-### GROUP TESTING
-# Random points
-"""
-# Number of fish in each group
-group_size = int(group_num)  # Total 80 fish, split into 2 groups
-
-group_1_ids = set(range(group_size))  # IDs 0-39 for Group 1
-group_2_ids = set(range(group_size, group_size * 2))  # IDs 40-79 for Group 2
-
-# Création des gens
-for i in range(group_num*2):
-
-   # Assign fish to their respective group
-   if i in group_1_ids:
-       poisson = Poisson(randint(0,300),randint(0,600), i)
-       group_1[i] = poisson
-   elif i in group_2_ids:
-       poisson = Poisson(randint(400,800),randint(0,600), i)
-       group_2[i] = poisson
-
-   # Adding to dictionairy
-   dict_poissons[i] = poisson
-   dict_pos[i] = poisson.pos
-
-# Affecter les 2 cibles à chacun des gens
-for poisson in group_1.values() :
-   dict_poissons_temp = group_1.copy()
-   poisson.choisir_cible(dict_poissons_temp)
-
-for poisson in group_2.values() :
-   dict_poissons_temp = group_2.copy()
-   poisson.choisir_cible(dict_poissons_temp)
-"""
-# WITH SEPARATION DISTANCE
-group_1, group_2 = generate_groups_with_exact_centroid_distance(group_num, group_radius, init_group_separation, zone_area)
-
-dict_poissons = group_1.copy()
-group_1_ids = list(group_1.keys())
-
-for id, poisson in group_2.items():
-    dict_poissons[id] =  poisson
-
-# Affecter les 2 cibles à chacun des gens
-for poisson in group_1.values() :
-   dict_poissons_temp = group_1.copy()
-   poisson.choisir_cible(dict_poissons_temp)
-
-for poisson in group_2.values() :
-   dict_poissons_temp = group_2.copy()
-   poisson.choisir_cible(dict_poissons_temp)
-"""
-### SIMPLE CASES
-
-# La dictionnaire des poissons
-dict_poissons = {}
-dict_pos = {}
-selected_fish = None  # This will store the ID of the selected fish
-
-# Création des gens
-for i in range(10):
-    poisson = Poisson(randint(100,700),randint(100,400), i)
-    dict_poissons[i] = poisson
-    dict_pos[i] = poisson.pos
-
-# Affecter les 2 cibles à chacun des gens
-for poisson in dict_poissons.values() :
-   dict_poissons_temp = dict_poissons.copy()
-   poisson.choisir_cible(dict_poissons_temp)
-"""
-
-### END OF CASES
-DEBUG = False
-
-# creation de l'interface
-interface = Interface()
-
-# Boucle principale
-stable = True
-n = 0
-while not stable:
-    n += 1
-    stable = True
-    clock.tick(60)
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            pygame.quit()
-            sys.exit()
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-                mouse_pos = pygame.mouse.get_pos()
-                clicked_fish_id = interface.check_click_on_list(mouse_pos)
-                if clicked_fish_id is not None:
-                    selected_fish = clicked_fish_id
-
-    screen.fill(BLACK)
-    
-    # Draw the fish list
-    if DEBUG:
-        interface.display_fish_list()
-
-    # Étape 1 : Calculer les prochaines positions
-    
-    for poisson in dict_poissons.values():
-        poisson.calculer_prochaine_position(dict_poissons)
-
-    # Étape 2 : Mettre à jour les positions
-    for poisson in dict_poissons.values():
-        poisson.pos = dict_pos[poisson.id]
-
-    # Afficher les poissons
-    for poisson in dict_poissons.values():
-        if poisson.idle != True:
-            stable = False
-        if DEBUG:
-            if poisson.id == selected_fish:
-                poisson.debug_afficher(highlight=True)
-            else:
-                poisson.debug_afficher()
-        else:
-            poisson.afficher()
-
-    pygame.display.update()
-print(f"took {n} iterations")
-
 
 class Model:
     """
@@ -573,6 +396,7 @@ class Model:
                 poisson.afficher(self.group_1_ids)
 
             pygame.display.update()
+        return n # nombre d'iterations
 
-model = Model(50, 100, 100)
-model.run()
+# model = Model(20, 100, 100)
+# model.run()
