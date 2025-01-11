@@ -42,14 +42,10 @@ class Poisson:
         self.pos = np.array([x, y], dtype=float)
         self.vitesse = 1
         self.tolerance = 3
-        #self.cible1 = None
-        #self.cible2 = None
-        #self.pos_percue_cible1 = None # Position percue par le poisson
-        #self.pos_percue_cible2 = None
         self.rayon_collision = rayon_collision  # Rayon de collision
         self.rayon_de_vue = 10
-
-        self.arrow = [0, 0]
+        self.idle = False
+        self.arrow = [0, 0] # juste pour visualiser
 
     def choisir_cible(self, dict_poissons):
         # Extract keys once, excluding the current fish
@@ -78,7 +74,7 @@ class Poisson:
         x, y = point
         return zone_area[0][0] <= x <= zone_area[1][0] and zone_area[0][1] <= y <= zone_area[1][1]
     
-    def calculer_destination(self):
+    def calculer_destination(self, dict_poissons):
         # Perceived target positions
         cibles_en_vue = self.cible_en_vue(dict_poissons)
         if cibles_en_vue[0]: # si on voit cible1
@@ -165,15 +161,17 @@ class Poisson:
         intersection = pos1 + t * vect_dir1
         return intersection
 
-    def calculer_prochaine_position(self, dict_poissons):
+    def calculer_prochaine_position(self, dict_poissons, dict_pos):
         
         repulsion = self.verifier_collisions(dict_poissons)
         self.arrow = repulsion
-        vect_dir = self.calculer_destination() - self.pos
+        vect_dir = self.calculer_destination(dict_poissons) - self.pos
         prochaine_position = self.pos + normaliser_vecteur(normaliser_vecteur(vect_dir) + repulsion) * self.vitesse
+        self.idle = False
         
-        if np.linalg.norm(vect_dir) < self.tolerance : # Si on est loin de la destination
+        if np.linalg.norm(vect_dir) < self.tolerance : # Si on est pas loin de la destination
             prochaine_position = self.pos + normaliser_vecteur(repulsion) * self.vitesse
+            self.idle = True
 
         dict_pos[self.id] = prochaine_position
     
@@ -262,7 +260,7 @@ class Poisson:
             cibles_en_vue.append(not obstructed)
         return cibles_en_vue
     
-    def afficher(self, highlight=False):
+    def debug_afficher(self, highlight=False):
 
         # TODO: procedural generated fish
         #body_size = [10, 10, 10]
@@ -283,6 +281,14 @@ class Poisson:
             pygame.draw.circle(screen, WHITE, self.pos, 2)
         pygame.draw.line(screen, (10, 50, 155), (self.pos), (self.pos + self.arrow*50))
 
+    def afficher(self, group_1_ids):
+        for mur in liste_murs:
+            pygame.draw.line(screen, WHITE, mur[0], mur[0]+mur[1])  
+
+        if self.id in group_1_ids:
+            pygame.draw.circle(screen, (0, 200, 100), self.pos, 2)
+        else:
+            pygame.draw.circle(screen, WHITE, self.pos, 2)
 
 
 
@@ -446,13 +452,17 @@ for poisson in dict_poissons.values() :
 """
 
 ### END OF CASES
+DEBUG = False
 
 # creation de l'interface
 interface = Interface()
 
 # Boucle principale
-x = True
-while x:
+stable = True
+n = 0
+while not stable:
+    n += 1
+    stable = True
     clock.tick(60)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -467,7 +477,8 @@ while x:
     screen.fill(BLACK)
     
     # Draw the fish list
-    interface.display_fish_list()
+    if DEBUG:
+        interface.display_fish_list()
 
     # Étape 1 : Calculer les prochaines positions
     
@@ -480,9 +491,88 @@ while x:
 
     # Afficher les poissons
     for poisson in dict_poissons.values():
-        if poisson.id == selected_fish:
-            poisson.afficher(highlight=True)
+        if poisson.idle != True:
+            stable = False
+        if DEBUG:
+            if poisson.id == selected_fish:
+                poisson.debug_afficher(highlight=True)
+            else:
+                poisson.debug_afficher()
         else:
             poisson.afficher()
 
     pygame.display.update()
+print(f"took {n} iterations")
+
+
+class Model:
+    """
+    Class pour le modelisation
+    Returns: data pour analyse
+    """
+    def __init__(self, n_poisson, r_group, separation_c_group):
+        self.zone_area = define_model_zone()
+        self.liste_murs = define_walls()
+
+        self.dict_poissons = {}
+        self.dict_pos = {}
+        self.group_1_ids = {}
+
+
+        self.n_poisson = n_poisson
+        self.r_group = r_group
+        self.separation_c_group = separation_c_group
+    
+    def init_program(self):
+        # WITH SEPARATION DISTANCE
+        group_1, group_2 = generate_groups_with_exact_centroid_distance(self.n_poisson, self.r_group, self.separation_c_group, self.zone_area)
+
+        self.dict_poissons = group_1.copy()
+        self.group_1_ids = list(group_1.keys())
+
+        for id, poisson in group_1.items():
+            self.dict_pos[id] = poisson.pos
+
+        for id, poisson in group_2.items():
+            self.dict_poissons[id] =  poisson
+            self.dict_pos[id] = poisson.pos
+
+        # Affecter les 2 cibles à chacun des gens
+        for poisson in group_1.values() :
+           dict_poissons_temp = group_1.copy()
+           poisson.choisir_cible(dict_poissons_temp)
+
+        for poisson in group_2.values() :
+           dict_poissons_temp = group_2.copy()
+           poisson.choisir_cible(dict_poissons_temp)
+
+    def run(self):
+        self.init_program()
+        # Boucle principale
+        stable = False
+        n = 0
+        while not stable:
+            n += 1
+            stable = True
+            clock.tick(60)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+
+            screen.fill(BLACK)
+
+            # Étape 1 : Calculer les prochaines positions
+            for poisson in self.dict_poissons.values():
+                poisson.calculer_prochaine_position(self.dict_poissons, self.dict_pos)
+                # Étape 2 : Mettre à jour les positions
+                poisson.pos = self.dict_pos[poisson.id]
+                # afficher
+                if poisson.idle != True:
+                    stable = False
+                poisson.afficher(self.group_1_ids)
+
+            pygame.display.update()
+
+model = Model(50, 100, 100)
+model.run()
