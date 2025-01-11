@@ -4,6 +4,6 @@ screen_width, screen_height = 900, 600
 # calculated to be in the middle of the screen
 model_width, model_height = 800, 500
 
-init_group_separation = 50
-group_num = 30
-group_radius = 100
+init_group_separation = 10
+group_num = 40
+group_radius = 200

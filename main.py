@@ -37,7 +37,7 @@ def calculer_distance(pos1, pos2):
     return np.linalg.norm(pos1 - pos2)
 
 class Poisson:
-    def __init__(self, x, y, id, rayon_collision = 30):
+    def __init__(self, x, y, id, rayon_collision = 10):
         self.id = id
         self.pos = np.array([x, y], dtype=float)
         self.vitesse = 1
@@ -47,13 +47,19 @@ class Poisson:
         #self.pos_percue_cible1 = None # Position percue par le poisson
         #self.pos_percue_cible2 = None
         self.rayon_collision = rayon_collision  # Rayon de collision
+        self.rayon_de_vue = 10
+
+        self.arrow = [0, 0]
 
     def choisir_cible(self, dict_poissons):
-        target_ids = [key for key in dict_poissons if key != self.id]
+        # Extract keys once, excluding the current fish
+        target_ids = list(dict_poissons.keys())
+        target_ids.remove(self.id)  # Avoid including self
 
-        index_cible1, index_cible2 = np.random.choice(target_ids, 2, replace=False)
-        self.cible1 = dict_poissons[index_cible1]
-        self.cible2 = dict_poissons[index_cible2]
+        # Randomly select two distinct targets
+        self.cible1, self.cible2 = np.random.choice([dict_poissons[id] for id in target_ids], 2, replace=False)
+
+        # Directly assign perceived positions
         self.pos_percue_cible1 = self.cible1.pos
         self.pos_percue_cible2 = self.cible2.pos
 
@@ -71,11 +77,9 @@ class Poisson:
         """
         x, y = point
         return zone_area[0][0] <= x <= zone_area[1][0] and zone_area[0][1] <= y <= zone_area[1][1]
-
+    
     def calculer_destination(self):
-        #destination = np.array([0,0])
         # Perceived target positions
-        # TODO: when in initiation it doesnt see its target, it will compute the destination with (0,0) as the unknown targets coords when it should just stay still
         cibles_en_vue = self.cible_en_vue(dict_poissons)
         if cibles_en_vue[0]: # si on voit cible1
             self.pos_percue_cible1 = self.cible1.pos
@@ -91,11 +95,22 @@ class Poisson:
 
         # Compute direction vectors
         vectdir = np.array([x1 - x2, y1 - y2])
-        perp_vectdir = normaliser_vecteur(np.array([y1 - y2, x2 - x1]))
+        perp_vectdir = np.array([y1 - y2, x2 - x1]) / np.linalg.norm(vectdir)
         midpoint = (self.pos_percue_cible1 + self.pos_percue_cible2) / 2
 
         # Find the initial intersection point
         destination = self.line_intersection((self.pos, vectdir), (midpoint, perp_vectdir))
+
+        # Efficient collision check using spatial filtering
+        poissons_positions = np.array([fish.pos for fish in dict_poissons.values() if fish != self])
+        distances = np.linalg.norm(poissons_positions - destination, axis=1)
+        collision_indices = np.where(distances < self.rayon_collision)[0]
+
+        for idx in collision_indices:
+            fish_pos = poissons_positions[idx]
+            direction = (destination - fish_pos) / np.linalg.norm(destination - fish_pos)
+            destination = fish_pos + direction * self.rayon_collision
+
         # If the point is outside walls, find the closest valid point
         if not self.is_within_walls(destination):
             closest_point = None
@@ -153,30 +168,37 @@ class Poisson:
     def calculer_prochaine_position(self, dict_poissons):
         
         repulsion = self.verifier_collisions(dict_poissons)
+        self.arrow = repulsion
         vect_dir = self.calculer_destination() - self.pos
-        prochaine_position = self.pos
-        if np.linalg.norm(vect_dir) > self.tolerance : # Si on est loin de la destination
-            prochaine_position = self.pos + normaliser_vecteur(normaliser_vecteur(vect_dir) + repulsion) * self.vitesse # qui fait deplacer nos poissons
-        else :
-            prochaine_position = self.pos + vect_dir
-        dict_pos[self.id] = prochaine_position
+        prochaine_position = self.pos + normaliser_vecteur(normaliser_vecteur(vect_dir) + repulsion) * self.vitesse
         
+        if np.linalg.norm(vect_dir) < self.tolerance : # Si on est loin de la destination
+            prochaine_position = self.pos + normaliser_vecteur(repulsion) * self.vitesse
+
+        dict_pos[self.id] = prochaine_position
+    
     def verifier_collisions(self, dict_poissons):
-        repulsion = 0
-        for autre_poisson in dict_poissons.values():
-            if autre_poisson != self:
-                distance = calculer_distance(self.pos, autre_poisson.pos)
-                if distance < self.rayon_collision:
-                    # Calculer le vecteur de répulsion
-                    vecteur_repulsion = self.pos - autre_poisson.pos
-                    vecteur_repulsion_normalise = normaliser_vecteur(vecteur_repulsion)
-                    # poids pour chaque force de repulsion entre poissons (inversement proportionnelle à la distance)
-                    force = (self.rayon_collision - distance) / distance
-                    # Appliquer la force de répulsion
-                    repulsion += vecteur_repulsion_normalise * force
+        # Extract positions and keys, ensuring consistent order
+        poisson_keys = list(dict_poissons.keys())
+        positions = np.array([dict_poissons[key].pos for key in poisson_keys])
+        distances = np.linalg.norm(positions - self.pos, axis=1)
+    
+        # Mask to identify collisions (distances smaller than collision radius)
+        collision_mask = distances < self.rayon_collision
+        repulsion = np.zeros(2)
+    
+        # For each collision, calculate the repulsion
+        for i, collides in enumerate(collision_mask):
+            if collides and poisson_keys[i] != self.id:  # Skip self
+                vecteur_repulsion = self.pos - positions[i]
+                vecteur_repulsion_normalise = normaliser_vecteur(vecteur_repulsion)
+                force = (self.rayon_collision - distances[i]) / distances[i]
+                repulsion += vecteur_repulsion_normalise * force
+    
         return repulsion
 
-    def cible_en_vue(self, dict_poissons):
+
+    def cible_en_vue2(self, dict_poissons):
         """
         Vérifie que la personne peut voir ses 2 cibles
 
@@ -198,7 +220,7 @@ class Poisson:
                         if np.all((poisson.pos >= min_pos) & (poisson.pos <= max_pos)):
                             perpvectdir = np.array([-vectdir[1], vectdir[0]])
                             distance = np.linalg.norm(poisson.pos - self.line_intersection((self.pos, vectdir), (poisson.pos, perpvectdir)))
-                            if distance < 5:
+                            if distance < self.rayon_de_vue:
                                 cible_en_vue = False
                                 break
                 else: 
@@ -206,21 +228,64 @@ class Poisson:
             cibles_en_vue.append(cible_en_vue)
         return cibles_en_vue
     
+    def cible_en_vue(self, dict_poissons):
+        """
+        Vérifie que la personne peut voir ses 2 cibles
+
+        Args : dict_poissons
+
+        Returns : 1 booléen pour chaque cible
+        """
+        cibles_en_vue = []
+
+        for cible in [self.cible1, self.cible2]:
+            # Pente droite jusqu'à la cible
+            vectdir = self.pos-cible.pos
+            perpvectdir = np.array([-vectdir[1], vectdir[0]])
+            
+            # Get bounds of the line segment
+            min_pos = np.minimum(self.pos, cible.pos)
+            max_pos = np.maximum(self.pos, cible.pos)
+
+            # Check if any fish obstructs the line of sight
+            obstructed = False
+            for poisson in dict_poissons.values():
+                if poisson != self and poisson != cible:
+                    # Check if the fish is within the bounding box
+                    if np.all((poisson.pos >= min_pos) & (poisson.pos <= max_pos)):
+                        # Calculate perpendicular distance to the line
+                        distance = np.abs(np.dot(poisson.pos - self.pos, perpvectdir)) / np.linalg.norm(vectdir)
+                        if distance < self.rayon_de_vue:
+                            obstructed = True
+                            break
+
+            cibles_en_vue.append(not obstructed)
+        return cibles_en_vue
+    
     def afficher(self, highlight=False):
-        # draw walls
+
+        # TODO: procedural generated fish
+        #body_size = [10, 10, 10]
+        # distance constraint
+        # one point that moves, all the other points follow
+        # draw walls 
         for mur in liste_murs:
             pygame.draw.line(screen, WHITE, mur[0], mur[0]+mur[1])
         if highlight:
-            pygame.draw.circle(screen, (255, 0, 0), self.calculer_destination(), 2)
-            pygame.draw.line(screen, (0, 0, 255), (self.pos), (self.pos_percue_cible1))
-            pygame.draw.line(screen, (0, 0, 255), (self.pos), (self.pos_percue_cible2))
-            pygame.draw.circle(screen, (0, 255, 0), self.pos, 2)
+             pygame.draw.circle(screen, (255, 0, 0), self.calculer_destination(), 2)
+             pygame.draw.line(screen, (0, 0, 255), (self.pos), (self.pos_percue_cible1))
+             pygame.draw.line(screen, (0, 0, 255), (self.pos), (self.pos_percue_cible2))
+             pygame.draw.circle(screen, (0, 255, 0), self.pos, 2)
+        pygame.draw.circle(screen, (0, 200, 100), self.pos, self.rayon_collision, 1)       
         if self.id in group_1_ids:
             pygame.draw.circle(screen, (0, 200, 100), self.pos, 2)
         else:
             pygame.draw.circle(screen, WHITE, self.pos, 2)
+        pygame.draw.line(screen, (10, 50, 155), (self.pos), (self.pos + self.arrow*50))
 
-    
+
+
+
 font = pygame.font.Font(None, 24)
 
 
@@ -252,14 +317,12 @@ def generate_groups_with_exact_centroid_distance(group_num, group_radius, separa
     # Step 1: Initialize the first centroid within a space in the center
     midpoint = (zone_area[0] + zone_area[1]) / 2
     target_centroid_1 = (midpoint[0] - separation_distance / 2, midpoint[1])
-
+    #print(f"target centroid for group1 {target_centroid_1}")
     # Step 2: Calculate the position of the second centroid with the desired separation
     #angle = np.random.uniform(np.pi, 2 * np.pi)  # Random angle for separation
-    target_centroid_2 = (
-        target_centroid_1[0] + separation_distance / 2,
-        midpoint[1])
+    target_centroid_2 = (midpoint[0] + separation_distance / 2, midpoint[1])
 
-    # Step 3: Generate points for each group
+    # Step 3: Generate points for each group around the theoretical centroid
     def generate_group(center):
         return [
             (
@@ -280,6 +343,7 @@ def generate_groups_with_exact_centroid_distance(group_num, group_radius, separa
         )
 
     centroid_1_actual = recalculate_centroid(group_1)
+    #print(f"actual centroid for group1 {centroid_1_actual}")
     centroid_2_actual = recalculate_centroid(group_2)
 
     # Shift points to adjust centroids if necessary
@@ -288,13 +352,16 @@ def generate_groups_with_exact_centroid_distance(group_num, group_radius, separa
         return [(x + shift_vector[0], y + shift_vector[1]) for x, y in points]
 
     group_1 = shift_group(group_1, centroid_1_actual, target_centroid_1)
+    #print(f"after shift, actual centroid for group1 {recalculate_centroid(group_1)}")
     group_2 = shift_group(group_2, centroid_2_actual, target_centroid_2)
+    
     group_1_fish = {}
     for i, coordinate in enumerate(group_1):
         group_1_fish[i] = Poisson(coordinate[0], coordinate[1], i)
+
     group_2_fish = {}
     for i, coordinate in enumerate(group_2):
-        group_2_fish[i] = Poisson(coordinate[0], coordinate[1], i)
+        group_2_fish[i + group_num] = Poisson(coordinate[0], coordinate[1], i + group_num)
 
     return group_1_fish, group_2_fish
 
@@ -303,26 +370,22 @@ def generate_groups_with_exact_centroid_distance(group_num, group_radius, separa
 zone_area = define_model_zone()
 liste_murs = define_walls()
 
-### GROUP TESTING
-
-
-group_1, group_2 = generate_groups_with_exact_centroid_distance(group_num, group_radius, init_group_separation, zone_area)
-
 # La dictionnaire des poissons
 dict_poissons = {}
 dict_pos = {}
 selected_fish = None  # This will store the ID of the selected fish
 
+### GROUP TESTING
+# Random points
+"""
 # Number of fish in each group
-group_size = int(group_num / 2)  # Total 80 fish, split into 2 groups
+group_size = int(group_num)  # Total 80 fish, split into 2 groups
+
 group_1_ids = set(range(group_size))  # IDs 0-39 for Group 1
 group_2_ids = set(range(group_size, group_size * 2))  # IDs 40-79 for Group 2
 
-group_1 = {}
-group_2 = {}
-
 # Création des gens
-for i in range(group_num):
+for i in range(group_num*2):
 
    # Assign fish to their respective group
    if i in group_1_ids:
@@ -344,8 +407,24 @@ for poisson in group_1.values() :
 for poisson in group_2.values() :
    dict_poissons_temp = group_2.copy()
    poisson.choisir_cible(dict_poissons_temp)
+"""
+# WITH SEPARATION DISTANCE
+group_1, group_2 = generate_groups_with_exact_centroid_distance(group_num, group_radius, init_group_separation, zone_area)
 
+dict_poissons = group_1.copy()
+group_1_ids = list(group_1.keys())
 
+for id, poisson in group_2.items():
+    dict_poissons[id] =  poisson
+
+# Affecter les 2 cibles à chacun des gens
+for poisson in group_1.values() :
+   dict_poissons_temp = group_1.copy()
+   poisson.choisir_cible(dict_poissons_temp)
+
+for poisson in group_2.values() :
+   dict_poissons_temp = group_2.copy()
+   poisson.choisir_cible(dict_poissons_temp)
 """
 ### SIMPLE CASES
 
