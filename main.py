@@ -37,11 +37,11 @@ def calculer_distance(pos1, pos2):
     return np.linalg.norm(pos1 - pos2)
 
 class Poisson:
-    def __init__(self, x, y, id, rayon_collision = 30):
+    def __init__(self, x, y, id, rayon_collision = 50):
         self.id = id
         self.pos = np.array([x, y], dtype=float)
-        self.vitesse = 1
-        self.tolerance = 3
+        self.vitesse = 1.5
+        self.tolerance = 4
         #self.cible1 = None
         #self.cible2 = None
         #self.pos_percue_cible1 = None # Position percue par le poisson
@@ -162,7 +162,7 @@ class Poisson:
         dict_pos[self.id] = prochaine_position
         
     def verifier_collisions(self, dict_poissons):
-        repulsion = 0
+        repulsion = np.array([0,0],dtype=float)
         for autre_poisson in dict_poissons.values():
             if autre_poisson != self:
                 distance = calculer_distance(self.pos, autre_poisson.pos)
@@ -211,14 +211,14 @@ class Poisson:
         for mur in liste_murs:
             pygame.draw.line(screen, WHITE, mur[0], mur[0]+mur[1])
         if highlight:
-            pygame.draw.circle(screen, (255, 0, 0), self.calculer_destination(), 2)
-            pygame.draw.line(screen, (0, 0, 255), (self.pos), (self.pos_percue_cible1))
-            pygame.draw.line(screen, (0, 0, 255), (self.pos), (self.pos_percue_cible2))
-            pygame.draw.circle(screen, (0, 255, 0), self.pos, 2)
+            #pygame.draw.circle(screen, (255, 0, 0), self.calculer_destination(), 2)
+            pygame.draw.line(screen, (255, 255, 255), (self.pos), (self.pos_percue_cible1))
+            pygame.draw.line(screen, (255, 255, 255), (self.pos), (self.pos_percue_cible2))
+            pygame.draw.circle(screen, (255, 0, 0), self.pos, 3)
         if self.id in group_1_ids:
-            pygame.draw.circle(screen, (0, 200, 100), self.pos, 2)
+            pygame.draw.circle(screen, (0, 0, 255), self.pos, 3)
         else:
-            pygame.draw.circle(screen, WHITE, self.pos, 2)
+            pygame.draw.circle(screen, (255,0,0), self.pos, 3)
 
     
 font = pygame.font.Font(None, 24)
@@ -326,10 +326,10 @@ for i in range(group_num):
 
    # Assign fish to their respective group
    if i in group_1_ids:
-       poisson = Poisson(randint(0,300),randint(0,600), i)
+       poisson = Poisson(randint(100,450),randint(100,500), i)
        group_1[i] = poisson
    elif i in group_2_ids:
-       poisson = Poisson(randint(400,800),randint(0,600), i)
+       poisson = Poisson(randint(450,800),randint(100,500), i)
        group_2[i] = poisson
 
    # Adding to dictionairy
@@ -369,26 +369,28 @@ for poisson in dict_poissons.values() :
 ### END OF CASES
 
 # creation de l'interface
-interface = Interface()
+#interface = Interface()
 
 # Boucle principale
 x = True
 while x:
     clock.tick(60)
+    
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit()
+        '''
         elif event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = pygame.mouse.get_pos()
                 clicked_fish_id = interface.check_click_on_list(mouse_pos)
                 if clicked_fish_id is not None:
                     selected_fish = clicked_fish_id
-
+        '''
     screen.fill(BLACK)
     
     # Draw the fish list
-    interface.display_fish_list()
+    #interface.display_fish_list()
 
     # Étape 1 : Calculer les prochaines positions
     
@@ -401,7 +403,8 @@ while x:
 
     # Afficher les poissons
     for poisson in dict_poissons.values():
-        if poisson.id == selected_fish:
+        #if poisson.id == selected_fish:
+        if poisson.id == 10:
             poisson.afficher(highlight=True)
         else:
             poisson.afficher()
