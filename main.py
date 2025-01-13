@@ -5,7 +5,7 @@ from config import *
 import numpy as np
 import math
 
-#pygame.init()
+pygame.init()
 clock = pygame.time.Clock()
 screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption("Modélisation du banc de poisson")
@@ -109,7 +109,9 @@ class Poisson:
     def choisir_cible(self, dict_poissons):
         # Extract keys once, excluding the current fish
         target_ids = list(dict_poissons.keys())
-        target_ids.remove(self.id)  # Avoid including self
+
+        if self.id in target_ids:
+            target_ids.remove(self.id)  # Avoid including self
 
         # Randomly select two distinct targets
         self.cible1, self.cible2 = np.random.choice([dict_poissons[id] for id in target_ids], 2, replace=False)
@@ -319,14 +321,23 @@ class Poisson:
             cibles_en_vue.append(not obstructed)
         return cibles_en_vue
 
-    def afficher(self, group_1_ids):
+    def afficher(self, group_1_lim, bebepoissoni=None):
+        # Draw walls
         for mur in liste_murs:
-            pygame.draw.line(screen, WHITE, mur[0], mur[0]+mur[1])  
+            pygame.draw.line(screen, WHITE, mur[0], mur[0] + mur[1])  
 
-        if self.id in group_1_ids:
-            pygame.draw.circle(screen, (0, 200, 100), self.pos, 2)
+        # Adjust color based on group_1_lim
+        if self.id < group_1_lim:
+            colour = (10, 200, 50)
         else:
-            pygame.draw.circle(screen, WHITE, self.pos, 2)
+            colour = WHITE
+
+        # Adjust color if it matches bebepoissoni
+        if self.id == bebepoissoni:
+            colour = (200, 10, 10)
+
+        # Draw the circle
+        pygame.draw.circle(screen, colour, self.pos, 2)
 
 class Model:
     """
@@ -339,7 +350,6 @@ class Model:
 
         self.dict_poissons = {}
         self.dict_pos = {}
-        self.group_1_ids = {}
 
 
         self.n_poisson = n_poisson
@@ -348,12 +358,12 @@ class Model:
     
     def init_program(self):
         # WITH SEPARATION DISTANCE
-        group_1, group_2 = generate_groups_with_exact_centroid_distance(self.n_poisson, self.r_group, self.separation_c_group, self.zone_area)
+        self.group_1, group_2 = generate_groups_with_exact_centroid_distance(self.n_poisson, self.r_group, self.separation_c_group, self.zone_area)
 
-        self.dict_poissons = group_1.copy()
-        self.group_1_ids = list(group_1.keys())
+        self.dict_poissons = self.group_1.copy()
+        self.group_1_lim = len(self.group_1) # with the group 1 lower bound being 0
 
-        for id, poisson in group_1.items():
+        for id, poisson in self.group_1.items():
             self.dict_pos[id] = poisson.pos
 
         for id, poisson in group_2.items():
@@ -361,42 +371,61 @@ class Model:
             self.dict_pos[id] = poisson.pos
 
         # Affecter les 2 cibles à chacun des gens
-        for poisson in group_1.values() :
-           dict_poissons_temp = group_1.copy()
+        for poisson in self.group_1.values() :
+           dict_poissons_temp = self.group_1.copy()
            poisson.choisir_cible(dict_poissons_temp)
 
         for poisson in group_2.values() :
            dict_poissons_temp = group_2.copy()
            poisson.choisir_cible(dict_poissons_temp)
 
-    def run(self):
-        self.init_program()
+    def run(self, autorun = True, bebepoissoni = None):
+        if self.dict_poissons == {}:
+            self.init_program()
         # Boucle principale
         stable = False
         n = 0
-        while not stable:
-            n += 1
-            stable = True
+        keypress = False
+
+        while not keypress:
             clock.tick(60)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     sys.exit()
+                if not autorun and event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if stable:
+                            keypress = True
+            if autorun and stable:
+                keypress = True
+            if not stable:
+                n += 1
+                stable = True
 
-            screen.fill(BLACK)
+                screen.fill(BLACK)
 
-            # Étape 1 : Calculer les prochaines positions
-            for poisson in self.dict_poissons.values():
-                poisson.calculer_prochaine_position(self.dict_poissons, self.dict_pos)
-                # Étape 2 : Mettre à jour les positions
-                poisson.pos = self.dict_pos[poisson.id]
-                # afficher
-                if poisson.idle != True:
-                    stable = False
-                poisson.afficher(self.group_1_ids)
+                # Étape 1 : Calculer les prochaines positions
+                for poisson in self.dict_poissons.values():
+                    poisson.calculer_prochaine_position(self.dict_poissons, self.dict_pos)
+                    # Étape 2 : Mettre à jour les positions
+                    poisson.pos = self.dict_pos[poisson.id]
+                    # afficher
+                    if poisson.idle != True:
+                        stable = False
+                    poisson.afficher(self.group_1_lim, bebepoissoni)
 
             pygame.display.update()
         return n # nombre d'iterations
+    
+    def run_bebepoisson(self, autorun=True):
+        self.run(autorun)
+        bebepoisson_i = np.random.randint(self.group_1_lim, len(self.dict_poissons))
+        bebepoisson = self.dict_poissons[bebepoisson_i]
+        bebepoisson.choisir_cible(self.group_1) # bebe poisson tjrs dans group 2 choisi 2 cibles dans group 1
+        screen.fill(WHITE)
+        self.run(bebepoissoni=bebepoisson_i, autorun=autorun)
 
-# model = Model(20, 100, 100)
-# model.run()
+if __name__ == "__main__":
+    model = Model(10, 200, 400)
+    model.run_bebepoisson(autorun=True)
