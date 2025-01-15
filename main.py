@@ -102,7 +102,7 @@ class Poisson:
         self.vitesse = 1
         self.tolerance = 3
         self.rayon_collision = rayon_collision  # Rayon de collision
-        self.rayon_de_vue = 10
+        self.rayon_de_vue = 0
         self.idle = False
         self.arrow = [0, 0] # juste pour visualiser
 
@@ -157,7 +157,6 @@ class Poisson:
 
         # Find the initial intersection point
         destination = self.line_intersection((self.pos, vectdir), (midpoint, perp_vectdir))
-
         # Efficient collision check using spatial filtering
         poissons_positions = np.array([fish.pos for fish in dict_poissons.values() if fish != self])
         distances = np.linalg.norm(poissons_positions - destination, axis=1)
@@ -203,24 +202,27 @@ class Poisson:
     def line_intersection(self, line1, line2):
         """
         Finds the intersection point of two line segments, if it exists.
-        Parameters: 2 lines of format (point of the line, direction vector of the line)
-        Returns: The point of intersection, None if no intersection
+        Parameters:
+            line1, line2: Each line is defined as (point, direction_vector),
+                          where point and direction_vector are numpy arrays.
+        Returns:
+            The point of intersection as a numpy array, or None if no intersection.
         """
-        pos1, vect_dir1 = line1
-        pos2, vect_dir2 = line2
+        pos1, dir1 = line1
+        pos2, dir2 = line2
 
-        line_cross_product = np.cross(vect_dir1, vect_dir2)
+        # Compute 2D cross product directly
+        cross = lambda a, b: a[0] * b[1] - a[1] * b[0]
+        det = cross(dir1, dir2)
 
-        # Check if lines are parallel or almost parallel
-        if abs(line_cross_product) < 1e-10:
-            return None  # Lines are parallel or nearly so
+        if abs(det) < 1e-10:
+            return None  # Lines are parallel or nearly parallel
 
-        pos_diff = pos2 - pos1
-        t = np.cross(pos_diff, vect_dir2) / line_cross_product
+        diff = pos2 - pos1
+        t = cross(diff, dir2) / det
 
-        # Calculate intersection point
-        intersection = pos1 + t * vect_dir1
-        return intersection
+        return pos1 + t * dir1
+
 
     def calculer_prochaine_position(self, dict_poissons, dict_pos):
         
@@ -418,6 +420,52 @@ class Model:
             pygame.display.update()
         return n # nombre d'iterations
     
+    def run_and_save(self, autorun = True, bebepoissoni = None):
+        
+        if self.dict_poissons == {}:
+            self.init_program()
+        # Boucle principale
+        stable = False
+        n = 0
+        keypress = False
+
+        hist_pos = []
+        while not keypress:
+            clock.tick(60)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if not autorun and event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if stable:
+                            keypress = True
+            if autorun and stable:
+                keypress = True
+            if not stable:
+                n += 1
+                stable = True
+
+                screen.fill(BLACK)
+
+                # Étape 1 : Calculer les prochaines positions
+                for poisson in self.dict_poissons.values():
+                    poisson.calculer_prochaine_position(self.dict_poissons, self.dict_pos)
+                    # Étape 2 : Mettre à jour les positions
+                    poisson.pos = self.dict_pos[poisson.id]
+                    # afficher
+                    if poisson.idle != True:
+                        stable = False
+                    poisson.afficher(self.group_1_lim, bebepoissoni)
+            
+            if n == 1:
+                hist_pos = list(self.dict_pos.values())
+            else:
+                hist_pos = np.column_stack((hist_pos, list(self.dict_pos.values())))
+
+            pygame.display.update()
+        np.savetxt("hist_pos.txt", hist_pos, fmt='%.2f')
+    
     def run_bebepoisson(self, autorun=True):
         self.run(autorun)
         bebepoisson_i = np.random.randint(self.group_1_lim, len(self.dict_poissons))
@@ -427,5 +475,6 @@ class Model:
         self.run(bebepoissoni=bebepoisson_i, autorun=autorun)
 
 if __name__ == "__main__":
-    model = Model(10, 200, 400)
-    model.run_bebepoisson(autorun=True)
+    model = Model(10, 50, 10)
+    #model.run_bebepoisson(autorun=False)
+    model.run_and_save(autorun=False)
