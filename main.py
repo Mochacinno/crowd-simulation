@@ -5,11 +5,6 @@ from config import *
 import numpy as np
 import math
 
-pygame.init()
-clock = pygame.time.Clock()
-screen = pygame.display.set_mode((screen_width, screen_height))
-pygame.display.set_caption("Modélisation du banc de poisson")
-font = pygame.font.Font(None, 24)
 
 def define_model_zone():
     width_spacing = (screen_width - model_width) / 2
@@ -323,7 +318,7 @@ class Poisson:
             cibles_en_vue.append(not obstructed)
         return cibles_en_vue
 
-    def afficher(self, group_1_lim, bebepoissoni=None):
+    def afficher(self, group_1_lim, screen, bebepoissoni=None):
         # Draw walls
         for mur in liste_murs:
             pygame.draw.line(screen, WHITE, mur[0], mur[0] + mur[1])  
@@ -346,19 +341,28 @@ class Model:
     Class pour le modelisation
     Returns: data pour analyse
     """
-    def __init__(self, n_poisson, r_group, separation_c_group):
+    def __init__(self, n_poisson, r_group, separation_c_group, display = True):
         self.zone_area = define_model_zone()
         self.liste_murs = define_walls()
 
         self.dict_poissons = {}
         self.dict_pos = {}
 
-
         self.n_poisson = n_poisson
         self.r_group = r_group
         self.separation_c_group = separation_c_group
+        self.clock = 0
+        self.screen = 0
+        self.font = 0
+        self.display = display
     
     def init_program(self):
+        if self.display: 
+            pygame.init()
+            self.clock = pygame.time.Clock()
+            self.screen = pygame.display.set_mode((screen_width, screen_height))
+            pygame.display.set_caption("Modélisation du banc de poisson")
+            self.font = pygame.font.Font(None, 24)
         # WITH SEPARATION DISTANCE
         self.group_1, group_2 = generate_groups_with_exact_centroid_distance(self.n_poisson, self.r_group, self.separation_c_group, self.zone_area)
 
@@ -388,9 +392,8 @@ class Model:
         stable = False
         n = 0
         keypress = False
-
         while not keypress:
-            clock.tick(60)
+            self.clock.tick(60)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
@@ -404,9 +407,7 @@ class Model:
             if not stable:
                 n += 1
                 stable = True
-
-                screen.fill(BLACK)
-
+                self.screen.fill(BLACK)
                 # Étape 1 : Calculer les prochaines positions
                 for poisson in self.dict_poissons.values():
                     poisson.calculer_prochaine_position(self.dict_poissons, self.dict_pos)
@@ -415,13 +416,31 @@ class Model:
                     # afficher
                     if poisson.idle != True:
                         stable = False
-                    poisson.afficher(self.group_1_lim, bebepoissoni)
-
+                    poisson.afficher(self.group_1_lim, self.screen, bebepoissoni)
             pygame.display.update()
         return n # nombre d'iterations
     
-    def run_and_save(self, autorun = True, bebepoissoni = None):
+    def run_no_display(self):
+        if self.dict_poissons == {}:
+            self.init_program()
         
+        # Boucle principale
+        stable = False
+        n = 0
+        while not stable:
+            n += 1
+            stable = True
+            # Étape 1 : Calculer les prochaines positions
+            for poisson in self.dict_poissons.values():
+                poisson.calculer_prochaine_position(self.dict_poissons, self.dict_pos)
+                # Étape 2 : Mettre à jour les positions
+                poisson.pos = self.dict_pos[poisson.id]
+                # afficher
+                if poisson.idle != True:
+                    stable = False
+        return n # nombre d'iterations
+
+    def run_and_save(self, autorun = True, bebepoissoni = None):
         if self.dict_poissons == {}:
             self.init_program()
         # Boucle principale
@@ -431,7 +450,7 @@ class Model:
 
         hist_pos = []
         while not keypress:
-            clock.tick(60)
+            self.clock.tick(60)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
@@ -446,7 +465,7 @@ class Model:
                 n += 1
                 stable = True
 
-                screen.fill(BLACK)
+                self.screen.fill(BLACK)
 
                 # Étape 1 : Calculer les prochaines positions
                 for poisson in self.dict_poissons.values():
@@ -456,7 +475,7 @@ class Model:
                     # afficher
                     if poisson.idle != True:
                         stable = False
-                    poisson.afficher(self.group_1_lim, bebepoissoni)
+                    poisson.afficher(self.group_1_lim, self.screen, bebepoissoni)
             
             if n == 1:
                 hist_pos = list(self.dict_pos.values())
@@ -471,7 +490,7 @@ class Model:
         bebepoisson_i = np.random.randint(self.group_1_lim, len(self.dict_poissons))
         bebepoisson = self.dict_poissons[bebepoisson_i]
         bebepoisson.choisir_cible(self.group_1) # bebe poisson tjrs dans group 2 choisi 2 cibles dans group 1
-        screen.fill(WHITE)
+        self.screen.fill(WHITE)
         self.run(bebepoissoni=bebepoisson_i, autorun=autorun)
 
 if __name__ == "__main__":

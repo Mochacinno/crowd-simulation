@@ -7,7 +7,4 @@ tout le monde va en meme vitesse avec un vecteur déplacement u_i (t)
 le pas de temps est fixé au début de simulation
 les points ont de collision => un rayon d'exclusion r_i autour de chaque point
 
-# NOTES
-600 x 300 dim maxi trotec
-plexiglass 2 jusqu'à 10
-mdf ou contreplaqués 3 ou 6
+TODO:
