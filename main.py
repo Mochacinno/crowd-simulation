@@ -97,8 +97,13 @@ class Poisson:
         self.vitesse = 1
         self.tolerance = 3
         self.rayon_collision = rayon_collision  # Rayon de collision
-        self.rayon_de_vue = 0
+        self.rayon_de_vue = 5
+
+        self.searching = False
         self.idle = False
+
+        self.pos_percue_cible1 = None
+        self.pos_percue_cible2 = None
         self.arrow = [0, 0] # juste pour visualiser
 
     def choisir_cible(self, dict_poissons):
@@ -110,10 +115,6 @@ class Poisson:
 
         # Randomly select two distinct targets
         self.cible1, self.cible2 = np.random.choice([dict_poissons[id] for id in target_ids], 2, replace=False)
-
-        # Directly assign perceived positions
-        self.pos_percue_cible1 = self.cible1.pos
-        self.pos_percue_cible2 = self.cible2.pos
 
     def is_within_walls(self, point):
         """
@@ -130,51 +131,36 @@ class Poisson:
         x, y = point
         return zone_area[0][0] <= x <= zone_area[1][0] and zone_area[0][1] <= y <= zone_area[1][1]
     
+    def find_cibles(self):
+        return [np.random.randint(-5, 5), np.random.randint(-5, 5)]
+
     def calculer_destination(self, dict_poissons):
-        # Perceived target positions
-        cibles_en_vue = self.cible_en_vue(dict_poissons)
-        if cibles_en_vue[0]: # si on voit cible1
-            self.pos_percue_cible1 = self.cible1.pos
-        #else: 
-            #print(f"poisson {self.id} cant see cible1")
-        if cibles_en_vue[1]: # si on voit cible2
-            self.pos_percue_cible2 = self.cible2.pos
-        #else:
-            #print(f"poisson {self.id} cant see cible2")
-        
         x1, y1 = self.pos_percue_cible1
         x2, y2 = self.pos_percue_cible2
-
         # Compute direction vectors
         vectdir = np.array([x1 - x2, y1 - y2])
         perp_vectdir = np.array([y1 - y2, x2 - x1]) / np.linalg.norm(vectdir)
         midpoint = (self.pos_percue_cible1 + self.pos_percue_cible2) / 2
-
         # Find the initial intersection point
         destination = self.line_intersection((self.pos, vectdir), (midpoint, perp_vectdir))
         # Efficient collision check using spatial filtering
         poissons_positions = np.array([fish.pos for fish in dict_poissons.values() if fish != self])
         distances = np.linalg.norm(poissons_positions - destination, axis=1)
         collision_indices = np.where(distances < self.rayon_collision)[0]
-
         for idx in collision_indices:
             fish_pos = poissons_positions[idx]
             direction = (destination - fish_pos) / np.linalg.norm(destination - fish_pos)
             destination = fish_pos + direction * self.rayon_collision
-
         # If the point is outside walls, find the closest valid point
         if not self.is_within_walls(destination):
             closest_point = None
             closest_distance = float('inf')
-
             # Loop through walls to find valid intersections
             for mur in liste_murs:
                 wall_start = mur[0]
                 wall_end = wall_start + mur[1]
-
                 # Find the intersection with the wall
                 intersection = self.line_intersection((midpoint, perp_vectdir), mur)
-
                 # Validate intersection within wall bounds
                 if intersection is not None:
                     if (
@@ -186,8 +172,6 @@ class Poisson:
                         if distance < closest_distance:
                             closest_distance = distance
                             closest_point = intersection
-                
-
             # Update destination to the closest valid point
             if closest_point is not None:
                 destination = closest_point
@@ -198,8 +182,8 @@ class Poisson:
         """
         Finds the intersection point of two line segments, if it exists.
         Parameters:
-            line1, line2: Each line is defined as (point, direction_vector),
-                          where point and direction_vector are numpy arrays.
+        line1, line2: Each line is defined as (point, direction_vector),
+                      where point and direction_vector are numpy arrays.
         Returns:
             The point of intersection as a numpy array, or None if no intersection.
         """
@@ -220,18 +204,41 @@ class Poisson:
 
 
     def calculer_prochaine_position(self, dict_poissons, dict_pos):
-        
+        """
+        Calculates the next position of the entity based on its state and target visibility.
+        """
+        # Collision repulsion
         repulsion = self.verifier_collisions(dict_poissons)
+
+        # Check visibility of targets and update perceived positions if visible
+        cibles_en_vue = self.cible_en_vue(dict_poissons)
+        if cibles_en_vue[0]:  # Target 1 is visible
+            self.pos_percue_cible1 = self.cible1.pos
+        if cibles_en_vue[1]:  # Target 2 is visible
+            self.pos_percue_cible2 = self.cible2.pos
+        if self.pos_percue_cible1 is None or self.pos_percue_cible2 is None:
+            self.searching = True
+
+        if self.searching:
+            vect_dir = self.find_cibles()
+            if self.pos_percue_cible1 is not None and self.pos_percue_cible2 is not None:
+                self.searching = False
+        else:
+            vect_dir = self.calculer_destination(dict_poissons) - self.pos
+
+        # Calculate next position considering repulsion and direction
         self.arrow = repulsion
-        vect_dir = self.calculer_destination(dict_poissons) - self.pos
         prochaine_position = self.pos + normaliser_vecteur(normaliser_vecteur(vect_dir) + repulsion) * self.vitesse
         self.idle = False
-        
-        if np.linalg.norm(vect_dir) < self.tolerance : # Si on est pas loin de la destination
+
+        # Handle arrival at the destination
+        if np.linalg.norm(vect_dir) < self.tolerance:  # Close to the destination
             prochaine_position = self.pos + normaliser_vecteur(repulsion) * self.vitesse
             self.idle = True
 
+        # Update position in the dictionary
         dict_pos[self.id] = prochaine_position
+
     
     def verifier_collisions(self, dict_poissons):
         # Extract positions and keys, ensuring consistent order
@@ -252,37 +259,6 @@ class Poisson:
                 repulsion += vecteur_repulsion_normalise * force
     
         return repulsion
-
-
-    def cible_en_vue2(self, dict_poissons):
-        """
-        Vérifie que la personne peut voir ses 2 cibles
-
-        Args : dict_poissons
-
-        Returns : 1 booléen pour chaque cible
-        """
-        cibles_en_vue = []
-        for cible in [self.cible1, self.cible2]:
-            # Pente droite jusqu'à la cible
-            vectdir = self.pos-cible.pos
-            cible_en_vue = True
-            while cible_en_vue == True:
-                for poisson in dict_poissons.values():
-                    # Vérification pour cible 1
-                    if poisson != self and poisson != cible :
-                        min_pos = np.minimum(self.pos, cible.pos)
-                        max_pos = np.maximum(self.pos, cible.pos)
-                        if np.all((poisson.pos >= min_pos) & (poisson.pos <= max_pos)):
-                            perpvectdir = np.array([-vectdir[1], vectdir[0]])
-                            distance = np.linalg.norm(poisson.pos - self.line_intersection((self.pos, vectdir), (poisson.pos, perpvectdir)))
-                            if distance < self.rayon_de_vue:
-                                cible_en_vue = False
-                                break
-                else: 
-                    break
-            cibles_en_vue.append(cible_en_vue)
-        return cibles_en_vue
     
     def cible_en_vue(self, dict_poissons):
         """
@@ -494,6 +470,6 @@ class Model:
         self.run(bebepoissoni=bebepoisson_i, autorun=autorun)
 
 if __name__ == "__main__":
-    model = Model(10, 50, 10)
+    model = Model(10, 100, 50)
     #model.run_bebepoisson(autorun=False)
     model.run_and_save(autorun=False)
