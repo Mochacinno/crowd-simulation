@@ -45,13 +45,14 @@ def generate_groups_with_exact_centroid_distance(group_num, group_radius, separa
 
     # Step 3: Generate points for each group around the theoretical centroid
     def generate_group(center):
-        return [
-            (
-                np.random.normal(center[0], group_radius / 2),
-                np.random.normal(center[1], group_radius / 2)
-            )
-            for _ in range(group_num)
-        ]
+        points = []
+        for _ in range(group_num):
+            r = np.random.uniform(0, group_radius)  # Random radius
+            theta = np.random.uniform(0, 2 * np.pi)  # Random angle
+            x = center[0] + r * np.cos(theta)
+            y = center[1] + r * np.sin(theta)
+            points.append((x, y))
+        return points
 
     group_1 = generate_group(target_centroid_1)
     group_2 = generate_group(target_centroid_2)
@@ -91,13 +92,13 @@ zone_area = define_model_zone()
 liste_murs = define_walls()
 
 class Poisson:
-    def __init__(self, x, y, id, rayon_collision = 10):
+    def __init__(self, x, y, id):
         self.id = id
         self.pos = np.array([x, y], dtype=float)
         self.vitesse = 1
         self.tolerance = 3
-        self.rayon_collision = rayon_collision  # Rayon de collision
-        self.rayon_de_vue = 5
+        self.rayon_collision = 13  # Rayon de collision
+        self.rayon_de_vue = 3
 
         self.searching = False
         self.idle = False
@@ -105,6 +106,7 @@ class Poisson:
         self.pos_percue_cible1 = None
         self.pos_percue_cible2 = None
         self.arrow = [0, 0] # juste pour visualiser
+        self.cooldown = 0
 
     def choisir_cible(self, dict_poissons):
         # Extract keys once, excluding the current fish
@@ -132,7 +134,16 @@ class Poisson:
         return zone_area[0][0] <= x <= zone_area[1][0] and zone_area[0][1] <= y <= zone_area[1][1]
     
     def find_cibles(self):
-        return [np.random.randint(-5, 5), np.random.randint(-5, 5)]
+        if self.cooldown == 0:
+            random_targets = np.random.randint(-20, 20, size=(100, 2))  # Generate multiple targets
+            for target in random_targets:
+                if self.is_within_walls(self.pos + target):
+                    self.res = target
+                    break
+        elif self.cooldown == 10:
+            self.cooldown = -1
+        self.cooldown += 1
+        return self.res
 
     def calculer_destination(self, dict_poissons):
         x1, y1 = self.pos_percue_cible1
@@ -241,9 +252,7 @@ class Poisson:
 
     
     def verifier_collisions(self, dict_poissons):
-        # Extract positions and keys, ensuring consistent order
-        poisson_keys = list(dict_poissons.keys())
-        positions = np.array([dict_poissons[key].pos for key in poisson_keys])
+        positions = np.array([fish.pos for fish in dict_poissons.values() if fish.id != self.id])
         distances = np.linalg.norm(positions - self.pos, axis=1)
     
         # Mask to identify collisions (distances smaller than collision radius)
@@ -251,13 +260,12 @@ class Poisson:
         repulsion = np.zeros(2)
     
         # For each collision, calculate the repulsion
-        for i, collides in enumerate(collision_mask):
-            if collides and poisson_keys[i] != self.id:  # Skip self
-                vecteur_repulsion = self.pos - positions[i]
-                vecteur_repulsion_normalise = normaliser_vecteur(vecteur_repulsion)
-                force = (self.rayon_collision - distances[i]) / distances[i]
-                repulsion += vecteur_repulsion_normalise * force
-    
+        for i in np.where(collision_mask)[0]:
+            vecteur_repulsion = self.pos - positions[i]
+            vecteur_repulsion_normalise = normaliser_vecteur(vecteur_repulsion)
+            force = (self.rayon_collision - distances[i]) / distances[i]
+            repulsion += vecteur_repulsion_normalise * force
+
         return repulsion
     
     def cible_en_vue(self, dict_poissons):
@@ -317,7 +325,7 @@ class Model:
     Class pour le modelisation
     Returns: data pour analyse
     """
-    def __init__(self, n_poisson, r_group, separation_c_group, display = True):
+    def __init__(self, n_poisson, r_group, separation_c_group=None, display = True):
         self.zone_area = define_model_zone()
         self.liste_murs = define_walls()
 
@@ -331,8 +339,10 @@ class Model:
         self.screen = 0
         self.font = 0
         self.display = display
+
+        self.centers = []
     
-    def init_program(self):
+    def init_run_groups(self):
         if self.display: 
             pygame.init()
             self.clock = pygame.time.Clock()
@@ -361,9 +371,35 @@ class Model:
            dict_poissons_temp = group_2.copy()
            poisson.choisir_cible(dict_poissons_temp)
 
+    def init_run(self):
+        if self.display: 
+            pygame.init()
+            self.clock = pygame.time.Clock()
+            self.screen = pygame.display.set_mode((screen_width, screen_height))
+            pygame.display.set_caption("Modélisation du banc de poisson")
+            self.font = pygame.font.Font(None, 24)
+        
+        center = np.mean(self.zone_area, axis=0)
+        self.dict_poissons = {}
+        for id in range(self.n_poisson):
+            pos = (np.random.normal(center[0], self.r_group / 2), np.random.normal(center[1], self.r_group / 2))
+            self.dict_poissons[id] = Poisson(pos[0], pos[1], id)
+            self.dict_pos[id] = pos
+        self.group_1_lim = len(self.dict_poissons)
+
+        # Affecter les 2 cibles à chacun des gens
+        for poisson in self.dict_poissons.values() :
+           dict_poissons_temp = self.dict_poissons.copy()
+           poisson.choisir_cible(dict_poissons_temp)
+
     def run(self, autorun = True, bebepoissoni = None):
+        res = []
+
         if self.dict_poissons == {}:
-            self.init_program()
+            if self.separation_c_group is not None:
+                self.init_run_groups()
+            else:
+                self.init_run()
         # Boucle principale
         stable = False
         n = 0
@@ -386,6 +422,7 @@ class Model:
                 self.screen.fill(BLACK)
                 # Étape 1 : Calculer les prochaines positions
                 for poisson in self.dict_poissons.values():
+                    res.append(poisson.pos)
                     poisson.calculer_prochaine_position(self.dict_poissons, self.dict_pos)
                     # Étape 2 : Mettre à jour les positions
                     poisson.pos = self.dict_pos[poisson.id]
@@ -393,13 +430,16 @@ class Model:
                     if poisson.idle != True:
                         stable = False
                     poisson.afficher(self.group_1_lim, self.screen, bebepoissoni)
+            break
             pygame.display.update()
-        return n # nombre d'iterations
+        return res # nombre d'iterations
     
     def run_no_display(self):
         if self.dict_poissons == {}:
-            self.init_program()
-        
+            if self.separation_c_group is not None:
+                self.init_run_groups()
+            else:
+                self.init_run()
         # Boucle principale
         stable = False
         n = 0
@@ -463,13 +503,26 @@ class Model:
     
     def run_bebepoisson(self, autorun=True):
         self.run(autorun)
-        bebepoisson_i = np.random.randint(self.group_1_lim, len(self.dict_poissons))
+        bebepoisson_i = np.random.randint(self.group_1_lim, len(self.dict_poissons)) # bebe dans group2
         bebepoisson = self.dict_poissons[bebepoisson_i]
+        # cherche combien de poisson ont choisi lui comme cible:
+        group2 = dict(list(self.dict_poissons.items())[self.group_1_lim:])# avoir que les group2
+        counter = 0
+        for poisson in group2.values():
+            if poisson.cible1.id == bebepoisson_i:
+                counter += 1
+            if poisson.cible2.id == bebepoisson_i:
+                counter += 1
+        print(f"le bebe a {counter} autres poisson qui l'ont comme cible")
         bebepoisson.choisir_cible(self.group_1) # bebe poisson tjrs dans group 2 choisi 2 cibles dans group 1
+        bebepoisson.pos_percue_cible1 = None
+        bebepoisson.pos_percue_cible2 = None
         self.screen.fill(WHITE)
         self.run(bebepoissoni=bebepoisson_i, autorun=autorun)
 
 if __name__ == "__main__":
-    model = Model(10, 100, 50)
-    #model.run_bebepoisson(autorun=False)
-    model.run_and_save(autorun=False)
+    model = Model(40, 100, 150)
+    model.run_bebepoisson(autorun=False)
+    #model.run_and_save(autorun=False)
+    #model = Model(100, 100)
+    #model.run(autorun=False)
