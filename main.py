@@ -316,6 +316,9 @@ class Poisson:
         # Adjust color if it matches bebepoissoni
         if self.id == bebepoissoni:
             colour = (200, 10, 10)
+            pygame.draw.line(screen, colour, self.pos, self.cible1.pos)
+            pygame.draw.line(screen, colour, self.pos, self.cible2.pos)
+
 
         # Draw the circle
         pygame.draw.circle(screen, colour, self.pos, 2)
@@ -393,7 +396,7 @@ class Model:
            poisson.choisir_cible(dict_poissons_temp)
 
     def run(self, autorun = True, bebepoissoni = None):
-        res = []
+        #res = []
 
         if self.dict_poissons == {}:
             if self.separation_c_group is not None:
@@ -422,7 +425,7 @@ class Model:
                 self.screen.fill(BLACK)
                 # Étape 1 : Calculer les prochaines positions
                 for poisson in self.dict_poissons.values():
-                    res.append(poisson.pos)
+                    #res.append(poisson.pos)
                     poisson.calculer_prochaine_position(self.dict_poissons, self.dict_pos)
                     # Étape 2 : Mettre à jour les positions
                     poisson.pos = self.dict_pos[poisson.id]
@@ -430,9 +433,8 @@ class Model:
                     if poisson.idle != True:
                         stable = False
                     poisson.afficher(self.group_1_lim, self.screen, bebepoissoni)
-            break
             pygame.display.update()
-        return res # nombre d'iterations
+        return n # nombre d'iterations
     
     def run_no_display(self):
         if self.dict_poissons == {}:
