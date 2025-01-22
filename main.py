@@ -460,13 +460,13 @@ class Model:
 
     def run_and_save(self, autorun = True, bebepoissoni = None):
         if self.dict_poissons == {}:
-            self.init_program()
+            self.init_run_groups()
         # Boucle principale
         stable = False
         n = 0
         keypress = False
 
-        hist_pos = []
+        hist_pos = {}
         while not keypress:
             self.clock.tick(60)
             for event in pygame.event.get():
@@ -495,13 +495,19 @@ class Model:
                         stable = False
                     poisson.afficher(self.group_1_lim, self.screen, bebepoissoni)
             
-            if n == 1:
-                hist_pos = list(self.dict_pos.values())
-            else:
-                hist_pos = np.column_stack((hist_pos, list(self.dict_pos.values())))
+            for id, pos in self.dict_pos.items():
+                positions = hist_pos.get(id, [])
+                pos = pos.tolist()
+                positions.append((int(pos[0]), int(pos[1])))
+                hist_pos[id] = positions
+
 
             pygame.display.update()
-        np.savetxt("hist_pos.txt", hist_pos, fmt='%.2f')
+        
+        # Save to a text file
+        with open('hist_pos.txt', 'w') as f:
+            for item in hist_pos.values():
+                f.write(f"{item}\n")
     
     def run_bebepoisson(self, autorun=True):
         self.run(autorun)
@@ -523,8 +529,8 @@ class Model:
         self.run(bebepoissoni=bebepoisson_i, autorun=autorun)
 
 if __name__ == "__main__":
-    model = Model(40, 100, 150)
-    model.run_bebepoisson(autorun=False)
-    #model.run_and_save(autorun=False)
+    model = Model(7, 100, 150)
+    #model.run_bebepoisson(autorun=False)
+    model.run_and_save(autorun=False)
     #model = Model(100, 100)
     #model.run(autorun=False)

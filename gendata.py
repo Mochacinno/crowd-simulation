@@ -45,10 +45,11 @@ def run_separation_test_graphics(separation_c_group_min, separation_c_group_max,
             #res.append([separation, iterations])
     np.savetxt("separation_test_positions200.txt", iterations)
 
+
 #run_iteration_test(10, 50, 100)
 #run_npoissons(10, 100, 10, 50, 10)
 #run_separation_test(50, 200, 50, 3, 40, 100)
-run_separation_test_graphics(200, 250, 50, 1, 40, 100)
+#run_separation_test_graphics(200, 250, 50, 1, 40, 100)
 """
 STANDARD
 TUNA school size of 30 to 100
@@ -60,3 +61,4 @@ DAns kla vrai vie, les poissons suivent les voisins pourqu'ils ne perdent pas da
 
 """
 
+if 

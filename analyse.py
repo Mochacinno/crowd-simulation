@@ -1,35 +1,33 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-"""
-data = np.genfromtxt("run_test.txt")
+def convergence_time():
+    data = np.genfromtxt("run_test.txt")
 
-mean = np.mean(data)
-median = np.median(data)
-print(f"mean: {mean}, median: {median}")
-lquartile = np.quantile(data, 0.25)
-uquartile = np.quantile(data, 0.75)
-print(uquartile)
-filter = np.logical_and(data <= uquartile, data >= lquartile)
-data_filtered = data[filter]
-filtered_mean = np.mean(data_filtered)
-print(f"filtered mean: {filtered_mean}")
+    mean = np.mean(data)
+    median = np.median(data)
+    print(f"mean: {mean}, median: {median}")
+    lquartile = np.quantile(data, 0.25)
+    uquartile = np.quantile(data, 0.75)
+    print(uquartile)
+    filter = np.logical_and(data <= uquartile, data >= lquartile)
+    data_filtered = data[filter]
+    filtered_mean = np.mean(data_filtered)
+    print(f"filtered mean: {filtered_mean}")
 
-iter = np.arange(1, len(data)+1, 1)
-sliced_mean_liste = []
-for n in iter:
-    sliced_data = data[:n]
-    sliced_mean = np.mean(sliced_data)
-    sliced_mean_liste.append(sliced_mean)
+    iter = np.arange(1, len(data)+1, 1)
+    sliced_mean_liste = []
+    for n in iter:
+        sliced_data = data[:n]
+        sliced_mean = np.mean(sliced_data)
+        sliced_mean_liste.append(sliced_mean)
 
-fig, ax = plt.subplots(2)
-ax[0].plot(data_filtered)
-ax[1].plot(iter, sliced_mean_liste)
-ax[1].plot(iter, np.linspace(mean, mean, num=len(data)))
-plt.show()
-"""
+    fig, ax = plt.subplots(2)
+    ax[0].plot(data_filtered)
+    ax[1].plot(iter, sliced_mean_liste)
+    ax[1].plot(iter, np.linspace(mean, mean, num=len(data)))
+    plt.show()
 
-"""
 data = np.genfromtxt("npoissons.txt")
 
 npoissons = data[:, 0]
@@ -67,6 +65,7 @@ ax[1].set_xlabel("Nombre de poissons")
 ax[1].set_ylabel("Nombre d'iterations")
 ax[1].set_title("Moyenne Pondérée d'iterations pour même nombre de poisson")
 plt.show()
+
 """
 from matplotlib.patches import Circle
 
@@ -128,4 +127,36 @@ for i, file_name in enumerate(file_names):
 
 # Adjust layout
 plt.tight_layout()
+plt.show()
+"""
+
+from scipy.spatial import ConvexHull
+from shapely.geometry import Polygon
+
+# Exemple de nuages de points
+points1 = [(1, 1), (2, 3), (3, 1), (2, 2),(5,4),(3,2.5)]
+points2 = [(2.5, 2.5), (3.5, 4), (5, 3), (4, 2)]
+
+# Fonction pour créer un polygone convexe à partir d'un nuage de points
+def create_polygon(points):
+    hull = ConvexHull(points)
+    return Polygon([points[v] for v in hull.vertices])
+
+# Création des polygones
+polygon1 = create_polygon(points1)
+polygon2 = create_polygon(points2)
+
+# Vérification de collision
+collision = polygon1.intersects(polygon2)
+
+# Affichage des résultats
+print(f"Les polygones sont en collision : {collision}")
+
+# Visualisation avec matplotlib
+plt.figure()
+plt.plot(*zip(*polygon1.exterior.coords), label="Polygone 1", color='blue')
+plt.plot(*zip(*polygon2.exterior.coords), label="Polygone 2", color='red')
+plt.scatter(*zip(*points1), color='blue')
+plt.scatter(*zip(*points2), color='red')
+plt.legend()
 plt.show()
