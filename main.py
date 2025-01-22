@@ -458,6 +458,25 @@ class Model:
                     stable = False
         return n # nombre d'iterations
 
+    def run_no_display_stable_pos(self):
+        if self.dict_poissons == {}:
+                self.init_run_groups()
+        # Boucle principale
+        stable = False
+        while not stable:
+            res = []
+            stable = True
+            # Étape 1 : Calculer les prochaines positions
+            for poisson in self.dict_poissons.values():
+                poisson.calculer_prochaine_position(self.dict_poissons, self.dict_pos)
+                # Étape 2 : Mettre à jour les positions
+                poisson.pos = self.dict_pos[poisson.id]
+                res.append(poisson.pos.tolist())
+                # afficher
+                if poisson.idle != True:
+                    stable = False
+        return res # nombre d'iterations
+
     def run_and_save(self, autorun = True, bebepoissoni = None):
         if self.dict_poissons == {}:
             self.init_run_groups()

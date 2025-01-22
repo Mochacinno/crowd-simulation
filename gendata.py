@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from main import *
+from analyse import *
 
 def run_iteration_test(n_exec, n_poissons, r_group):
     n_liste = []
@@ -25,7 +26,7 @@ def run_npoissons(n_exec, r_group, n_poissons_min, n_poissons_max, step):
             n_liste.append([n_poissons, iterations])
     np.savetxt("npoissons4.txt", n_liste)
 
-def run_separation_test(separation_c_group_min, separation_c_group_max, step, n_exec, n_poissons, r_group):
+def run_separation_test2(separation_c_group_min, separation_c_group_max, step, n_exec, n_poissons, r_group):
     res = []
     separation_c_group_liste = np.arange(separation_c_group_min, separation_c_group_max, step)
     for separation in separation_c_group_liste:
@@ -34,6 +35,22 @@ def run_separation_test(separation_c_group_min, separation_c_group_max, step, n_
             iterations = model.run()
             res.append([separation, iterations])
     np.savetxt("separation_stability.txt", res)
+
+def run_separation_test(separation_c_group_min, separation_c_group_max, step, n_exec, n_poissons, r_group):
+    separation_c_group_liste = np.arange(separation_c_group_min, separation_c_group_max, step)
+    percentages = []
+    for separation in separation_c_group_liste:
+        res = []
+        for _ in range(n_exec):
+            model = Model(n_poissons, r_group, separation, display=False)
+            pos = model.run_no_display_stable_pos()
+            res.append(run_separation(pos, n_poissons))
+        counter = 0
+        for bool in res:
+            if bool:
+                counter += 1
+        percentages.append(counter/len(res)*100)
+        print((separation, percentages))
 
 def run_separation_test_graphics(separation_c_group_min, separation_c_group_max, step, n_exec, n_poissons, r_group):
     res = []
@@ -48,7 +65,7 @@ def run_separation_test_graphics(separation_c_group_min, separation_c_group_max,
 
 #run_iteration_test(10, 50, 100)
 #run_npoissons(10, 100, 10, 50, 10)
-#run_separation_test(50, 200, 50, 3, 40, 100)
+run_separation_test(100, 110, 50, 10, 40, 100)
 #run_separation_test_graphics(200, 250, 50, 1, 40, 100)
 """
 STANDARD
@@ -60,5 +77,3 @@ spacing of 1 to 5 meters so if one tuna is 1 meter so rayon d'occultation = 5
 DAns kla vrai vie, les poissons suivent les voisins pourqu'ils ne perdent pas dans la foule
 
 """
-
-if 

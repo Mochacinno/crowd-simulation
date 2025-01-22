@@ -1,7 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.spatial import ConvexHull
+from shapely.geometry import Polygon
 
-def convergence_time():
+def convergence_time2():
     data = np.genfromtxt("run_test.txt")
 
     mean = np.mean(data)
@@ -28,43 +30,43 @@ def convergence_time():
     ax[1].plot(iter, np.linspace(mean, mean, num=len(data)))
     plt.show()
 
-data = np.genfromtxt("npoissons.txt")
+def convergence_time():
+    data = np.genfromtxt("npoissons.txt")
 
-npoissons = data[:, 0]
-iters_list = data[:, 1]
+    npoissons = data[:, 0]
+    iters_list = data[:, 1]
 
-# fait un dictionairy pour organiser les iterations en fonction de nbr poissons
-stabilite = {}
-for i, npoisson in enumerate(npoissons):
-    array = stabilite.get(npoisson, [])
-    array.append(iters_list[i])
-    stabilite[npoisson] = array
+    # fait un dictionairy pour organiser les iterations en fonction de nbr poissons
+    stabilite = {}
+    for i, npoisson in enumerate(npoissons):
+        array = stabilite.get(npoisson, [])
+        array.append(iters_list[i])
+        stabilite[npoisson] = array
 
-mean_iters_filtered = []
-for iters in stabilite.values():
-    mean = np.mean(iters)
-    median = np.median(iters)
-    lquartile = np.quantile(iters, 0.25)
-    uquartile = np.quantile(iters, 0.75)
-    filter = np.logical_and(iters <= uquartile, iters >= lquartile)
-    iters_filtered = np.array(iters)[filter]
-    filtered_mean = np.mean(iters_filtered)
-    mean_iters_filtered.append(filtered_mean)
+    mean_iters_filtered = []
+    for iters in stabilite.values():
+        mean = np.mean(iters)
+        median = np.median(iters)
+        lquartile = np.quantile(iters, 0.25)
+        uquartile = np.quantile(iters, 0.75)
+        filter = np.logical_and(iters <= uquartile, iters >= lquartile)
+        iters_filtered = np.array(iters)[filter]
+        filtered_mean = np.mean(iters_filtered)
+        mean_iters_filtered.append(filtered_mean)
 
-fig, ax = plt.subplots(1,2, figsize=[12,5])
-ax[0].scatter(npoissons, iters_list, marker='o')
-ax[1].scatter(stabilite.keys(), mean_iters_filtered, marker='o')
-
-#ax.scatter(stabilite.keys(), median_iters, marker='o')
-#ax.scatter(stabilite.keys(), mean_iters, marker='o')
-#ax.scatter(stabilite.keys(), mean_iters_filtered, marker='o')
-ax[0].set_xlabel("Nombre de poissons")
-ax[0].set_ylabel("Nombre d'iterations")
-ax[0].set_title("Nombre d'iterations en fonction de nombre de poisson")
-ax[1].set_xlabel("Nombre de poissons")
-ax[1].set_ylabel("Nombre d'iterations")
-ax[1].set_title("Moyenne Pondérée d'iterations pour même nombre de poisson")
-plt.show()
+    fig, ax = plt.subplots(1,2, figsize=[12,5])
+    ax[0].scatter(npoissons, iters_list, marker='o')
+    ax[1].scatter(stabilite.keys(), mean_iters_filtered, marker='o')
+    #ax.scatter(stabilite.keys(), median_iters, marker='o')
+    #ax.scatter(stabilite.keys(), mean_iters, marker='o')
+    #ax.scatter(stabilite.keys(), mean_iters_filtered, marker='o')
+    ax[0].set_xlabel("Nombre de poissons")
+    ax[0].set_ylabel("Nombre d'iterations")
+    ax[0].set_title("Nombre d'iterations en fonction de nombre de poisson")
+    ax[1].set_xlabel("Nombre de poissons")
+    ax[1].set_ylabel("Nombre d'iterations")
+    ax[1].set_title("Moyenne Pondérée d'iterations pour même nombre de poisson")
+    plt.show()
 
 """
 from matplotlib.patches import Circle
@@ -129,34 +131,39 @@ for i, file_name in enumerate(file_names):
 plt.tight_layout()
 plt.show()
 """
+def run_separation(data, n_poisson):
+    #data = np.genfromtxt("separation_stable_positions.txt")
+    # Split data into two groups
+    group1 = data[:n_poisson]
+    group2 = data[n_poisson:]
 
-from scipy.spatial import ConvexHull
-from shapely.geometry import Polygon
+    # Fonction pour créer un polygone convexe à partir d'un nuage de points
+    def create_polygon(points):
+        hull = ConvexHull(points)
+        return Polygon([points[v] for v in hull.vertices])
 
-# Exemple de nuages de points
-points1 = [(1, 1), (2, 3), (3, 1), (2, 2),(5,4),(3,2.5)]
-points2 = [(2.5, 2.5), (3.5, 4), (5, 3), (4, 2)]
+    # Création des polygones
+    polygon1 = create_polygon(group1)
+    polygon2 = create_polygon(group2)
 
-# Fonction pour créer un polygone convexe à partir d'un nuage de points
-def create_polygon(points):
-    hull = ConvexHull(points)
-    return Polygon([points[v] for v in hull.vertices])
+    # Vérification de collision
+    collision = polygon1.intersects(polygon2)
 
-# Création des polygones
-polygon1 = create_polygon(points1)
-polygon2 = create_polygon(points2)
+    # Affichage des résultats
+    #print(f"Les polygones sont en collision : {collision}")
 
-# Vérification de collision
-collision = polygon1.intersects(polygon2)
+    """
+    # Visualisation avec matplotlib
+    plt.figure()
+    plt.plot(*zip(*polygon1.exterior.coords), label="Polygone 1", color='blue')
+    plt.plot(*zip(*polygon2.exterior.coords), label="Polygone 2", color='red')
+    plt.scatter(*zip(*group1), color='blue')
+    plt.scatter(*zip(*group2), color='red')
+    plt.legend()
+    plt.show()
+    """
+    return collision
 
-# Affichage des résultats
-print(f"Les polygones sont en collision : {collision}")
-
-# Visualisation avec matplotlib
-plt.figure()
-plt.plot(*zip(*polygon1.exterior.coords), label="Polygone 1", color='blue')
-plt.plot(*zip(*polygon2.exterior.coords), label="Polygone 2", color='red')
-plt.scatter(*zip(*points1), color='blue')
-plt.scatter(*zip(*points2), color='red')
-plt.legend()
-plt.show()
+#(50, [100.0])
+#separation()
+convergence_time()
