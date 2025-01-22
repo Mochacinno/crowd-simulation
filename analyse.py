@@ -66,6 +66,7 @@ def convergence_time():
     ax[1].set_xlabel("Nombre de poissons")
     ax[1].set_ylabel("Nombre d'iterations")
     ax[1].set_title("Moyenne Pondérée d'iterations pour même nombre de poisson")
+    
     plt.show()
 
 """
@@ -165,5 +166,23 @@ def run_separation(data, n_poisson):
     return collision
 
 #(50, [100.0])
+#(60, [100.0])
+#(100, [90.0])
+#(120, [100.0])
+#(130, [60.0])
+#(120, [70.0])
+
+#(150, [50.0])
+#(170, [40.0])
+#(190, [40.0])
+#(200, [10.0])
 #separation()
-convergence_time()
+#pour 20 poisson
+#(50, [90.0])
+#(70, [90.0, 90.0])
+#(90, [90.0, 90.0, 40.0])
+#(110, [90.0, 90.0, 40.0, 40.0])
+#(130, [90.0, 90.0, 40.0, 40.0, 20.0])
+
+if __name__ == "__main__":
+    convergence_time()

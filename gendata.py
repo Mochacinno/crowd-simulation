@@ -62,11 +62,19 @@ def run_separation_test_graphics(separation_c_group_min, separation_c_group_max,
             #res.append([separation, iterations])
     np.savetxt("separation_test_positions200.txt", iterations)
 
+def run_bebepoisson_test(separation_c_group, n_exec, n_poissons, r_group):
+    res = []
+    for _ in range(n_exec):
+        model = Model(n_poissons, r_group, separation_c_group, display=False)
+        clients, iterations = model.run_bebepoisson()
+        res.append([clients, iterations])
+    np.savetxt("bebepoisson2.txt", res)
 
 #run_iteration_test(10, 50, 100)
 #run_npoissons(10, 100, 10, 50, 10)
-run_separation_test(100, 110, 50, 10, 40, 100)
+#run_separation_test(105, 110, 15, 20, 20, 100)
 #run_separation_test_graphics(200, 250, 50, 1, 40, 100)
+run_bebepoisson_test(200, 10, 40, 100)
 """
 STANDARD
 TUNA school size of 30 to 100

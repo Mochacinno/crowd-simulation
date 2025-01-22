@@ -436,6 +436,46 @@ class Model:
             pygame.display.update()
         return n # nombre d'iterations
     
+    def run(self, autorun = True, bebepoissoni = None):
+
+        if self.dict_poissons == {}:
+            if self.separation_c_group is not None:
+                self.init_run_groups()
+            else:
+                self.init_run()
+        # Boucle principale
+        stable = False
+        n = 0
+        keypress = False
+        while not keypress:
+            self.clock.tick(60)
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                if not autorun and event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        if stable:
+                            keypress = True
+            if autorun and stable:
+                keypress = True
+            if not stable:
+                n += 1
+                stable = True
+                self.screen.fill(BLACK)
+                # Étape 1 : Calculer les prochaines positions
+                for poisson in self.dict_poissons.values():
+                    #res.append(poisson.pos)
+                    poisson.calculer_prochaine_position(self.dict_poissons, self.dict_pos)
+                    # Étape 2 : Mettre à jour les positions
+                    poisson.pos = self.dict_pos[poisson.id]
+                    # afficher
+                    if poisson.idle != True:
+                        stable = False
+                    poisson.afficher(self.group_1_lim, self.screen, bebepoissoni)
+            pygame.display.update()
+        return n # nombre d'iterations
+    
     def run_no_display(self):
         if self.dict_poissons == {}:
             if self.separation_c_group is not None:
@@ -528,7 +568,7 @@ class Model:
             for item in hist_pos.values():
                 f.write(f"{item}\n")
     
-    def run_bebepoisson(self, autorun=True):
+    def run_bebepoisson2(self, autorun=True):
         self.run(autorun)
         bebepoisson_i = np.random.randint(self.group_1_lim, len(self.dict_poissons)) # bebe dans group2
         bebepoisson = self.dict_poissons[bebepoisson_i]
@@ -540,16 +580,37 @@ class Model:
                 counter += 1
             if poisson.cible2.id == bebepoisson_i:
                 counter += 1
-        print(f"le bebe a {counter} autres poisson qui l'ont comme cible")
+        #print(f"le bebe a {counter} autres poisson qui l'ont comme cible")
         bebepoisson.choisir_cible(self.group_1) # bebe poisson tjrs dans group 2 choisi 2 cibles dans group 1
         bebepoisson.pos_percue_cible1 = None
         bebepoisson.pos_percue_cible2 = None
         self.screen.fill(WHITE)
-        self.run(bebepoissoni=bebepoisson_i, autorun=autorun)
+        iter = self.run(autorun, bebepoisson_i)
+        return counter, iter
+    
+    def run_bebepoisson(self):
+        self.run_no_display()
+        bebepoisson_i = np.random.randint(self.group_1_lim, len(self.dict_poissons)) # bebe dans group2
+        bebepoisson = self.dict_poissons[bebepoisson_i]
+        # cherche combien de poisson ont choisi lui comme cible:
+        group2 = dict(list(self.dict_poissons.items())[self.group_1_lim:])# avoir que les group2
+        counter = 0
+        for poisson in group2.values():
+            if poisson.cible1.id == bebepoisson_i:
+                counter += 1
+            if poisson.cible2.id == bebepoisson_i:
+                counter += 1
+        #print(f"le bebe a {counter} autres poisson qui l'ont comme cible")
+        bebepoisson.choisir_cible(self.group_1) # bebe poisson tjrs dans group 2 choisi 2 cibles dans group 1
+        bebepoisson.pos_percue_cible1 = None
+        bebepoisson.pos_percue_cible2 = None
+        iter = self.run_no_display()
+        return counter, iter
+
 
 if __name__ == "__main__":
     model = Model(7, 100, 150)
-    #model.run_bebepoisson(autorun=False)
-    model.run_and_save(autorun=False)
+    model.run_bebepoisson(autorun=False)
+    #model.run_and_save(autorun=False)
     #model = Model(100, 100)
     #model.run(autorun=False)
