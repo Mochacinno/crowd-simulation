@@ -207,6 +207,28 @@ def plot_separation():
 def plot_bebe():
     data = np.genfromtxt("bebepoisson.txt")
 
+    clients = data[:, 0]
+    iters = data[:, 1]
+    fig, ax = plt.subplots()
+    ax.scatter(clients, iters)
+
+    ax.set_title("Probabilité de separation des groupes en fonction de chevauchement")
+    ax.set_ylabel("Probability of separation")
+    ax.set_xlabel("Separation distance")
+    plt.legend()
+    plt.show()
+    
+    client_dict = {}
+    for i in range(len(data)):
+        client = data[i][0]
+        iter = data[i][1]
+        value = client_dict.get(client, [])
+        value.append(iter)
+        client_dict[client] = value
+    
+    print(client_dict)
+
 if __name__ == "__main__":
     #convergence_time()
     #plot_separation()
+    plot_bebe()
