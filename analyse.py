@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull
 from shapely.geometry import Polygon
+import math
 
 def convergence_time2():
     data = np.genfromtxt("run_test.txt")
@@ -66,7 +67,9 @@ def convergence_time():
     ax[1].set_xlabel("Nombre de poissons")
     ax[1].set_ylabel("Nombre d'iterations")
     ax[1].set_title("Moyenne Pondérée d'iterations pour même nombre de poisson")
-    
+    plt.figtext(0.5, -0.2, "(a)", ha="center", va="center", fontsize=12, transform=ax[0].transAxes)
+    plt.figtext(0.5, -0.2, "(b)", ha="center", va="center", fontsize=12, transform=ax[1].transAxes)
+    plt.subplots_adjust(bottom=0.2)
     plt.show()
 
 """
@@ -184,5 +187,26 @@ def run_separation(data, n_poisson):
 #(110, [90.0, 90.0, 40.0, 40.0])
 #(130, [90.0, 90.0, 40.0, 40.0, 20.0])
 
+def plot_separation():
+    data = np.genfromtxt("plotseparation.txt")
+    separation = data[:, 0]
+    probability = data[:, 1]/100
+    k=0.055
+    x = np.linspace(0, 250, 100)
+    y = 1/(1+np.exp(-k*(x-100)))
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    ax.scatter(separation, probability)
+
+    ax.set_title("Probabilité de separation des groupes en fonction de chevauchement")
+    ax.set_ylabel("Probability of separation")
+    ax.set_xlabel("Separation distance")
+    plt.legend()
+    plt.show()
+
+def plot_bebe():
+    data = np.genfromtxt("bebepoisson.txt")
+
 if __name__ == "__main__":
-    convergence_time()
+    #convergence_time()
+    #plot_separation()
