@@ -201,7 +201,6 @@ def plot_separation():
     ax.set_title("Probabilité de separation des groupes en fonction de chevauchement")
     ax.set_ylabel("Probability of separation")
     ax.set_xlabel("Separation distance")
-    plt.legend()
     plt.show()
 
 def plot_bebe():
@@ -209,15 +208,12 @@ def plot_bebe():
 
     clients = data[:, 0]
     iters = data[:, 1]
-    fig, ax = plt.subplots()
-    ax.scatter(clients, iters)
-
-    ax.set_title("Probabilité de separation des groupes en fonction de chevauchement")
-    ax.set_ylabel("Probability of separation")
-    ax.set_xlabel("Separation distance")
-    plt.legend()
-    plt.show()
     
+    # Create a scatter plot
+    fig, ax = plt.subplots()
+    ax.scatter(clients, iters, label='Data Points')
+
+    # Create a dictionary to store iterations for each client
     client_dict = {}
     for i in range(len(data)):
         client = data[i][0]
@@ -226,51 +222,33 @@ def plot_bebe():
         value.append(iter)
         client_dict[client] = value
     
+    client_dict = dict(sorted(client_dict.items()))
     print(client_dict)
-
-if __name__ == "__main__":
-    #convergence_time()
-    #plot_separation()
-    #plot_bebe()
-
-    # Sample data
-    np.random.seed(0)
-    x = np.random.rand(100)
-    y = np.random.rand(100)
-
-    # Create a scatter plot
-    plt.scatter(x, y, color='blue', alpha=0.5)
-
-
-    # Create a grid of x values for the smooth line
-    x_grid = np.linspace(0, 1, 100)
-
-    # Calculate the lower and upper quartiles for each x value
+    
     lower_quartile = []
     upper_quartile = []
+    for iters in list(client_dict.values()):
+        # Calculate lower and upper quartiles
+        lower_quartile.append(np.percentile(iters, 25))
+        upper_quartile.append(np.percentile(iters, 75))
     
-    # For each x value in the grid, find the corresponding y values
-    for x_val in x_grid:
-        # Create a boolean mask for y values corresponding to the current x value
-        mask = np.abs(x - x_val) < 0.05  # Adjust the threshold as needed
-        y_vals = y[mask]  # Use the mask to index y
-        if len(y_vals) > 0:
-            lower_quartile.append(np.percentile(y_vals, 25))
-            upper_quartile.append(np.percentile(y_vals, 75))
-        else:
-            lower_quartile.append(np.nan)
-            upper_quartile.append(np.nan)
-    
-    # Convert lists to arrays
-    lower_quartile = np.array(lower_quartile)
-    upper_quartile = np.array(upper_quartile)
-    
-    # Plot the quartile bands
-    plt.fill_between(x_grid, lower_quartile, upper_quartile, color='red', alpha=0.3, label='IQR Band')
-    
-    # Add labels and title
-    plt.title('Scatterplot with Quartile Bands')
-    plt.xlabel('X-axis')
-    plt.ylabel('Y-axis')
+    #sort dict
+
+    # Add quartile lines
+    ax.plot(list(client_dict.keys()), lower_quartile, color='r', linestyle='--', label='Lower Quartile (Q1)')
+    ax.plot(list(client_dict.keys()), upper_quartile, color='g', linestyle='--', label='Upper Quartile (Q3)')
+
+    # Fill between the quartiles
+    ax.fill_between(list(client_dict.keys()), lower_quartile, upper_quartile, color='gray', alpha=0.5, label='Interquartile Range')
+
+    # Set titles and labels
+    ax.set_title("Probabilité de separation des groupes en fonction de chevauchement")
+    ax.set_ylabel("Probability of separation")
+    ax.set_xlabel("Separation distance")
     plt.legend()
     plt.show()
+
+if __name__ == "__main__":
+    convergence_time()
+    plot_separation()
+    plot_bebe()
