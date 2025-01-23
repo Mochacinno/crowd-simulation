@@ -31,46 +31,80 @@ def convergence_time2():
     ax[1].plot(iter, np.linspace(mean, mean, num=len(data)))
     plt.show()
 
+
+
 def convergence_time():
     data = np.genfromtxt("npoissons.txt")
 
     npoissons = data[:, 0]
     iters_list = data[:, 1]
 
-    # fait un dictionairy pour organiser les iterations en fonction de nbr poissons
+    # Create a dictionary to organize iterations based on the number of poissons
     stabilite = {}
     for i, npoisson in enumerate(npoissons):
         array = stabilite.get(npoisson, [])
         array.append(iters_list[i])
         stabilite[npoisson] = array
 
-    mean_iters_filtered = []
-    for iters in stabilite.values():
-        mean = np.mean(iters)
-        median = np.median(iters)
-        lquartile = np.quantile(iters, 0.25)
-        uquartile = np.quantile(iters, 0.75)
-        filter = np.logical_and(iters <= uquartile, iters >= lquartile)
-        iters_filtered = np.array(iters)[filter]
-        filtered_mean = np.mean(iters_filtered)
-        mean_iters_filtered.append(filtered_mean)
+    # Prepare lists for plotting
+    filtered_npoissons = []
+    filtered_iters = []
+    means = []
+    unique_npoissons = []
 
-    fig, ax = plt.subplots(1,2, figsize=[12,5])
-    ax[0].scatter(npoissons, iters_list, marker='o')
-    ax[1].scatter(stabilite.keys(), mean_iters_filtered, marker='o')
-    #ax.scatter(stabilite.keys(), median_iters, marker='o')
-    #ax.scatter(stabilite.keys(), mean_iters, marker='o')
-    #ax.scatter(stabilite.keys(), mean_iters_filtered, marker='o')
-    ax[0].set_xlabel("Nombre de poissons")
-    ax[0].set_ylabel("Nombre d'iterations")
-    ax[0].set_title("Nombre d'iterations en fonction de nombre de poisson")
-    ax[1].set_xlabel("Nombre de poissons")
-    ax[1].set_ylabel("Nombre d'iterations")
-    ax[1].set_title("Moyenne Pondérée d'iterations pour même nombre de poisson")
+    for npoisson in sorted(stabilite.keys()):
+        iters = stabilite[npoisson]
+        sorted_iters = np.sort(iters)
+        n = len(sorted_iters)
+        trim_count = int(np.round(0.1 * n))
+
+        # Trim the data
+        trimmed_data = sorted_iters[trim_count:n-trim_count]
+
+        # Store the filtered npoissons and their corresponding trimmed data
+        filtered_npoissons.extend([npoisson] * len(trimmed_data))  # Repeat npoisson for each trimmed value
+        filtered_iters.extend(trimmed_data)  # Add the trimmed data
+
+        # Calculate the mean of the trimmed data
+        if len(trimmed_data) > 0:  # Ensure there's data to calculate mean
+            mean_value = np.mean(trimmed_data)
+            means.append(mean_value)
+            unique_npoissons.append(npoisson)
+
+    # Convert to numpy arrays for easier plotting
+    filtered_npoissons = np.array(filtered_npoissons)
+    filtered_iters = np.array(filtered_iters)
+    means = np.array(means)
+    unique_npoissons = np.array(unique_npoissons)
+
+    # Plotting
+    fig, ax = plt.subplots(1, 2, figsize=[12, 5])
+    
+    # First plot
+    ax[0].scatter(npoissons, iters_list, marker='o', label='Data Points')
+    ax[0].set_xlabel(r"Nombre de poissons $(N)$", fontsize=12)
+    ax[0].set_ylabel(r"Nombre d'iterations $(n)$", fontsize=12)
+    ax[0].set_title(r"Nombre d'iterations $(N)$ en fonction de nombre de poissons $(n)$", fontsize=12)
+    
+    # Second plot with filtered data
+    ax[1].scatter(filtered_npoissons, filtered_iters, marker='o', label='Iterations tronqués')
+    ax[1].set_xlabel(r"Nombre de poissons $(N)$", fontsize=12, fontstyle='italic')
+    ax[1].set_ylabel(r"Nombre d'iterations $(n)$", fontsize=12)
+    ax[1].set_title("Après suppression des valeurs extrêmes", fontsize=12)
+
+    # Plot the mean for each unique N
+    ax[1].plot(unique_npoissons, means, color='orange', marker='o', label='Moyenne des valeurs tronquées')
+
+    # Add legends
+    ax[0].legend()
+    ax[1].legend()
+
+    # Adjust layout and show
     plt.figtext(0.5, -0.2, "(a)", ha="center", va="center", fontsize=12, transform=ax[0].transAxes)
     plt.figtext(0.5, -0.2, "(b)", ha="center", va="center", fontsize=12, transform=ax[1].transAxes)
     plt.subplots_adjust(bottom=0.2)
     plt.show()
+
 
 """
 from matplotlib.patches import Circle
@@ -195,12 +229,14 @@ def plot_separation():
     x = np.linspace(0, 250, 100)
     y = 1/(1+np.exp(-k*(x-100)))
     fig, ax = plt.subplots()
-    ax.plot(x, y)
+    ax.plot(x, y, color="orange", label=r"Fonction logistique")
     ax.scatter(separation, probability)
 
-    ax.set_title("Probabilité de separation des groupes en fonction de chevauchement")
-    ax.set_ylabel("Probability of separation")
-    ax.set_xlabel("Separation distance")
+    ax.set_title(r"Probabilité de separation des groupes en fonction de chevauchement")
+    ax.set_ylabel(r"Probabilité de separation $P(S)$")
+    ax.set_xlabel(r"Distance de chevauchement $d$")
+    ax.axvline(200, label=r"$d = 2R_b$", linestyle='dashed', color="red")
+    plt.legend()
     plt.show()
 
 def plot_bebe():
@@ -211,44 +247,56 @@ def plot_bebe():
     
     # Create a scatter plot
     fig, ax = plt.subplots()
-    ax.scatter(clients, iters, label='Data Points')
+    #ax[0].scatter(clients, iters, label='Data Points')
+
+    # Remove outlier
+    data = np.delete(data, 19, axis=0)
+
+    clients = data[:, 0]
+    iters = data[:, 1]
+    ax.scatter(clients, iters)
 
     # Create a dictionary to store iterations for each client
     client_dict = {}
     for i in range(len(data)):
         client = data[i][0]
-        iter = data[i][1]
+        iter_value = data[i][1]
         value = client_dict.get(client, [])
-        value.append(iter)
+        value.append(iter_value)
         client_dict[client] = value
     
     client_dict = dict(sorted(client_dict.items()))
-    print(client_dict)
-    
-    lower_quartile = []
-    upper_quartile = []
-    for iters in list(client_dict.values()):
-        # Calculate lower and upper quartiles
-        lower_quartile.append(np.percentile(iters, 25))
-        upper_quartile.append(np.percentile(iters, 75))
-    
-    #sort dict
 
-    # Add quartile lines
-    ax.plot(list(client_dict.keys()), lower_quartile, color='r', linestyle='--', label='Lower Quartile (Q1)')
-    ax.plot(list(client_dict.keys()), upper_quartile, color='g', linestyle='--', label='Upper Quartile (Q3)')
+    # Calculate min and max for each client
+    min_values = []
+    max_values = []
+    mean_values = []
+    unique_clients = list(client_dict.keys())
 
-    # Fill between the quartiles
-    ax.fill_between(list(client_dict.keys()), lower_quartile, upper_quartile, color='gray', alpha=0.5, label='Interquartile Range')
+    for client in unique_clients:
+        iterations = client_dict[client]
+        min_values.append(np.min(iterations))
+        max_values.append(np.max(iterations))
+        mean_values.append(np.mean(iterations))
+
+    # Plot min and max lines
+    ax.plot(unique_clients, mean_values, color='orange', marker='o', label='Moyenne')
+
+    # Fill between min and max
+    ax.fill_between(unique_clients, min_values, max_values, color='gray', alpha=0.5, label='Intervalle de résultats')
 
     # Set titles and labels
-    ax.set_title("Probabilité de separation des groupes en fonction de chevauchement")
-    ax.set_ylabel("Probability of separation")
-    ax.set_xlabel("Separation distance")
+    ax.set_title(r"Nombre d'itérations $n$ en fonction du nombre de poissons qui y sont liés $Z$")
+    ax.set_ylabel(r"Nombre d'itérations $(n)$")
+    ax.set_xlabel(r"Poissons liés $(Z)$")
+
+
+    
     plt.legend()
+    #plt.tight_layout()  # Adjust layout to prevent overlap
     plt.show()
 
 if __name__ == "__main__":
-    convergence_time()
-    plot_separation()
+    #convergence_time()
+    #plot_separation()
     plot_bebe()
